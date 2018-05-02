@@ -1,10 +1,17 @@
 """Streaming resource types"""
 from abc import ABC, abstractmethod
+from enum import Enum, unique
 
 import requests.exceptions
 import simple_salesforce.exceptions
 
 from .exceptions import NetworkError, SalesforceError, RabbitForceValueError
+
+
+@unique
+class StreamingResourceType(str, Enum):
+    PUSH_TOPIC = "PushTopic"
+    STREAMING_CHANNEL = "StreamingChannel"
 
 
 # pylint: disable=too-few-public-methods
@@ -38,7 +45,8 @@ class StreamingResource(ABC):
 
 # pylint: disable=useless-super-delegation
 
-class PushTopicResource(StreamingResource, type_name="PushTopic"):
+class PushTopicResource(
+        StreamingResource, type_name=StreamingResourceType.PUSH_TOPIC):
     """Represents a query that is the basis for notifying listeners of \
     changes to records in an organization"""
     def __init__(self, name, *, resource_attributes):
@@ -55,8 +63,8 @@ class PushTopicResource(StreamingResource, type_name="PushTopic"):
         return "/topic/" + self.name
 
 
-class StreamingChannelResource(StreamingResource,
-                               type_name="StreamingChannel"):
+class StreamingChannelResource(
+        StreamingResource, type_name=StreamingResourceType.STREAMING_CHANNEL):
     """Represents a channel that is the basis for notifying listeners of \
     generic Streaming API events"""
     def __init__(self, name, *, resource_attributes):

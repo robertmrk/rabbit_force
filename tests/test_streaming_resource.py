@@ -4,7 +4,8 @@ import requests.exceptions
 import simple_salesforce.exceptions
 
 from rabbit_force.streaming_resources import StreamingResource, \
-    PushTopicResource, StreamingChannelResource, StreamingResourceFactory
+    PushTopicResource, StreamingChannelResource, StreamingResourceFactory, \
+    StreamingResourceType
 from rabbit_force.exceptions import NetworkError, SalesforceError, \
     RabbitForceValueError
 
@@ -24,8 +25,10 @@ class TestStreamingResource(TestCase):
 
 class TestPushTopicResource(TestCase):
     def test_registers_in_superclass(self):
-        self.assertEqual(StreamingResource.RESOURCE_TYPES["PushTopic"],
-                         PushTopicResource)
+        self.assertEqual(
+            StreamingResource.RESOURCE_TYPES[StreamingResourceType.PUSH_TOPIC],
+            PushTopicResource
+        )
 
     def test_returns_channel_name(self):
         name = "MyTopic"
@@ -36,8 +39,11 @@ class TestPushTopicResource(TestCase):
 
 class TestStreamingChannelResource(TestCase):
     def test_registers_in_superclass(self):
-        self.assertEqual(StreamingResource.RESOURCE_TYPES["StreamingChannel"],
-                         StreamingChannelResource)
+        self.assertEqual(
+            StreamingResource.RESOURCE_TYPES[
+                StreamingResourceType.STREAMING_CHANNEL],
+            StreamingChannelResource
+        )
 
     def test_returns_channel_name(self):
         name = "MyChannel"
