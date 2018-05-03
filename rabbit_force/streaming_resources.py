@@ -171,8 +171,8 @@ class StreamingResourceFactory:  # pylint: disable=too-few-public-methods
         elif identifier_name == "Id":
             return self._get_resource_by_id(identifier_value)
         else:
-            raise RabbitForceValueError(f"The identifier '{identifier_name}' "
-                                        f"is not recognized as being unique.")
+            raise RabbitForceValueError(f"'{identifier_name}' is not a unique "
+                                        f"streaming resource identifier.")
 
     def _get_resource_by_id(self, resource_id):
         """Get the attributes of an existing streaming resource with the \

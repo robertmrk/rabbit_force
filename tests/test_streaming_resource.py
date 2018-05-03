@@ -141,8 +141,8 @@ class TestStreamingResourceFactory(TestCase):
         identifier_name = "unknown"
 
         with self.assertRaisesRegex(RabbitForceValueError,
-                                    f"The identifier '{identifier_name}' "
-                                    f"is not recognized as being unique."):
+                                    f"'{identifier_name}' is not a unique "
+                                    f"streaming resource identifier."):
             self.factory._get_resource_by_identifier(identifier_name, "value")
 
         self.factory._get_resource_by_name.assert_not_called()
