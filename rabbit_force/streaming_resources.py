@@ -10,25 +10,45 @@ from .exceptions import NetworkError, SalesforceError, RabbitForceValueError
 
 @unique
 class StreamingResourceType(str, Enum):
+    """Streaming resource type names supported by Salesforce"""
+    #: PushTopic resource name
     PUSH_TOPIC = "PushTopic"
+    #: StreamingChannel resource name
     STREAMING_CHANNEL = "StreamingChannel"
 
-
-# pylint: disable=too-few-public-methods
 
 class StreamingResource(ABC):
     """Base class for streaming resource types"""
     #: Dictionary of resource types by name
     RESOURCE_TYPES = {}
 
-    def __init__(self, name, *, resource_attributes):
+    def __init__(self, resource_definition, durable=True):
         """
-        :param str name: Descriptive name of the StreamingResource. \
-        This value identifies the channel and must be unique
-        :param resource_attributes: All resource attributes
+        :param dict resource_definition: The resources server side \
+        representation
+        :param bool durable: Whether the resource should be deleted or should \
+        it be left on the server
         """
-        self.name = name
-        self.resource_attributes = resource_attributes
+        #: The resource's server side representation
+        self.definition = resource_definition
+        #: Marks whether the resource should be deleted or should
+        #: it be left on the server
+        self.durable = durable
+
+    @property
+    def id(self):  # pylint: disable=invalid-name
+        """Resource id"""
+        return self.definition["Id"]
+
+    @property
+    def name(self):
+        """Resource name"""
+        return self.definition["Name"]
+
+    @property
+    def description(self):
+        """Resource description"""
+        return self.definition["Description"]
 
     @property
     @abstractmethod
@@ -62,11 +82,10 @@ class StreamingChannelResource(
     def channel_name(self):
         return self.name
 
-# pylint: enable=too-few-public-methods
-
 
 class StreamingResourceFactory:  # pylint: disable=too-few-public-methods
-    """Factory class for creating StreamingResource objects"""
+    """Factory class for creating StreamingResource objects from resource
+    specifications"""
     def __init__(self, type_name, rest_client):
         """
         :param str type_name: Name of a streaming resource type
@@ -102,10 +121,9 @@ class StreamingResourceFactory:  # pylint: disable=too-few-public-methods
         create a new resource from the *resource_spec*
         """
         try:
-            attributes = self._get_resource(resource_spec)
+            resource_definition = self._get_resource(resource_spec)
             resource_cls = StreamingResource.RESOURCE_TYPES[self.type_name]
-            return resource_cls(attributes["Name"],
-                                resource_attributes=attributes)
+            return resource_cls(resource_definition)
         except simple_salesforce.exceptions.SalesforceError as error:
             raise SalesforceError(str(error)) from error
         except requests.exceptions.RequestException as error:

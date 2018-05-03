@@ -11,16 +11,34 @@ from rabbit_force.exceptions import NetworkError, SalesforceError, \
 
 
 class TestStreamingResource(TestCase):
-    def test_registers_subclass(self):
-        type_name = "ResourceName"
+    def setUp(self):
+        self. type_name = "ResourceName"
 
-        class Resource(StreamingResource, type_name=type_name):
+        class Resource(StreamingResource, type_name=self.type_name):
             @property
             def channel_name(self):
                 return "name"
 
-        self.assertEqual(StreamingResource.RESOURCE_TYPES[type_name],
-                         Resource)
+        self.resource_cls = Resource
+        self.resource = Resource({
+            "Id": "id",
+            "Name": "name",
+            "Description": "desc"
+        })
+
+    def test_registers_subclass(self):
+        self.assertEqual(StreamingResource.RESOURCE_TYPES[self.type_name],
+                         self.resource_cls)
+
+    def test_returns_name(self):
+        self.assertEqual(self.resource.name, self.resource.definition["Name"])
+
+    def test_returns_id(self):
+        self.assertEqual(self.resource.id, self.resource.definition["Id"])
+
+    def test_returns_description(self):
+        self.assertEqual(self.resource.description,
+                         self.resource.definition["Description"])
 
 
 class TestPushTopicResource(TestCase):
@@ -31,10 +49,10 @@ class TestPushTopicResource(TestCase):
         )
 
     def test_returns_channel_name(self):
-        name = "MyTopic"
-        topic = PushTopicResource(name, resource_attributes=None)
+        definition = {"Name": "name"}
+        topic = PushTopicResource(definition)
 
-        self.assertEqual(topic.channel_name, "/topic/" + name)
+        self.assertEqual(topic.channel_name, "/topic/" + definition["Name"])
 
 
 class TestStreamingChannelResource(TestCase):
@@ -46,10 +64,10 @@ class TestStreamingChannelResource(TestCase):
         )
 
     def test_returns_channel_name(self):
-        name = "MyChannel"
-        topic = StreamingChannelResource(name, resource_attributes=None)
+        definition = {"Name": "name"}
+        topic = StreamingChannelResource(definition)
 
-        self.assertEqual(topic.channel_name, name)
+        self.assertEqual(topic.channel_name, definition["Name"])
 
 
 class TestStreamingResourceFactory(TestCase):
@@ -71,7 +89,7 @@ class TestStreamingResourceFactory(TestCase):
 
         self.assertEqual(result, type_cls.return_value)
         self.factory._get_resource.assert_called_with(spec)
-        type_cls.assert_called_with(spec["Name"], resource_attributes=spec)
+        type_cls.assert_called_with(spec)
         del StreamingResource.RESOURCE_TYPES[self.type_name]
 
     def test_get_resource_network_error(self):
@@ -131,7 +149,8 @@ class TestStreamingResourceFactory(TestCase):
 
         result = self.factory._get_resource_by_identifier("Name", "name")
 
-        self.assertEqual(result, self.factory._get_resource_by_name.return_value)
+        self.assertEqual(result,
+                         self.factory._get_resource_by_name.return_value)
         self.factory._get_resource_by_name.assert_called_with("name")
         self.factory._get_resource_by_id.assert_not_called()
 
