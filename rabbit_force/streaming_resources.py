@@ -43,20 +43,10 @@ class StreamingResource(ABC):
         return cls
 
 
-# pylint: disable=useless-super-delegation
-
 class PushTopicResource(
         StreamingResource, type_name=StreamingResourceType.PUSH_TOPIC):
     """Represents a query that is the basis for notifying listeners of \
     changes to records in an organization"""
-    def __init__(self, name, *, resource_attributes):
-        """
-        :param str name: Descriptive name of the PushTopic, such as \
-        MyNewCases or TeamUpdatedContacts. Limit: 25 characters. This value \
-        identifies the channel and must be unique.
-        :param resource_attributes: All resource attributes
-        """
-        super().__init__(name, resource_attributes=resource_attributes)
 
     @property
     def channel_name(self):
@@ -67,20 +57,12 @@ class StreamingChannelResource(
         StreamingResource, type_name=StreamingResourceType.STREAMING_CHANNEL):
     """Represents a channel that is the basis for notifying listeners of \
     generic Streaming API events"""
-    def __init__(self, name, *, resource_attributes):
-        """
-        :param str name: Descriptive name of the StreamingChannel. Limit: 80 \
-        characters, alphanumeric and “_”, “/” characters only. Must start \
-        with “/u/”. This value identifies the channel and must be unique.
-        :param resource_attributes: All resource attributes
-        """
-        super().__init__(name, resource_attributes=resource_attributes)
 
     @property
     def channel_name(self):
         return self.name
 
-# pylint: enable=too-few-public-methods,useless-super-delegation
+# pylint: enable=too-few-public-methods
 
 
 class StreamingResourceFactory:  # pylint: disable=too-few-public-methods
