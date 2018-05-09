@@ -36,16 +36,14 @@ class TestSalesforceOrg(TestCase):
 
     @mock.patch("rabbit_force.salesforce_org.RestClient")
     async def test_get_client(self, rest_client_cls):
-        self.authenticator._auth_response = {
-            "access_token": "token"
-        }
+        self.authenticator.access_token = "token"
 
         result = await self.org._get_client()
 
         self.assertEqual(result, rest_client_cls.return_value)
         rest_client_cls.assert_called_with(
             instance_url=self.authenticator.instance_url,
-            session_id=self.authenticator._auth_response["access_token"]
+            session_id=self.authenticator.access_token
         )
         self.assertEqual(self.org._rest_client, result)
 

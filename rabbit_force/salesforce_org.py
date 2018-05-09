@@ -39,10 +39,9 @@ class SalesforceOrg:
         # existing object
         if not self._rest_client:
             await self.authenticator.authenticate()
-            access_token = self.authenticator._auth_response["access_token"]
             self._rest_client = RestClient(
                 instance_url=self.authenticator.instance_url,
-                session_id=access_token
+                session_id=self.authenticator.access_token
             )
         return self._rest_client
 
