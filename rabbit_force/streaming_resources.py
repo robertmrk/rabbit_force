@@ -2,10 +2,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum, unique
 
-import requests.exceptions
-import simple_salesforce.exceptions
-
-from .exceptions import NetworkError, SalesforceError, RabbitForceValueError
+from .exceptions import SalesforceNotFoundError, SpecificationError
 
 
 @unique
@@ -86,21 +83,17 @@ class StreamingChannelResource(
 class StreamingResourceFactory:  # pylint: disable=too-few-public-methods
     """Factory class for creating StreamingResource objects from resource
     specifications"""
-    def __init__(self, type_name, rest_client):
+    def __init__(self, rest_client):
         """
-        :param str type_name: Name of a streaming resource type
         :param rest_client: Salesforce REST API client
-        :type rest_client: simple_salesforce.Salesforce
+        :type rest_client: SalesforceApi
         """
         #: Salesforce REST API client
-        self.rest_client = rest_client
-        #: Name of a streaming resource type
-        self.type_name = type_name
-        #: Salesforce REST API client for handling a single type of resource
-        self.resource_client = getattr(self.rest_client, type_name)
+        self.client = rest_client
 
-    def get_resource(self, resource_spec):
-        """Create a StreamingResource object based on the given *resource_spec*
+    async def create_resource(self, type_name, resource_spec):
+        """Create a StreamingResource object of type *type_name* based on the
+        given *resource_spec*
 
         If the *resource_spec* contains a single unique identifier like \
         ``Name`` or ``Id`, then the existing resource will be loaded and \
@@ -109,6 +102,7 @@ class StreamingResourceFactory:  # pylint: disable=too-few-public-methods
         resource will be created or an existing one will be updated if \
         a resource already exists with the given ``Name`` attribute.
 
+        :param str type_name: Name of a streaming resource type
         :param dict resource_spec: A resource specification, which either \
         contains all attributes required for creating the resource, or \
         contains a single unique identifier of an existing resource, such as \
@@ -116,21 +110,22 @@ class StreamingResourceFactory:  # pylint: disable=too-few-public-methods
         :return: A streaming resource object
         :rtype: StreamingResource
         :raise NetworkError: If a network connection error occurs
-        :raise SalesforceError: If there is no existing resource for the \
+        :raise SalesforceRestError: If there is no existing resource for the \
         given single identifier in *resource_spec* or if Salesforce fails to \
         create a new resource from the *resource_spec*
         """
-        try:
-            resource_definition = self._get_resource(resource_spec)
-            resource_cls = StreamingResource.RESOURCE_TYPES[self.type_name]
-            return resource_cls(resource_definition)
-        except simple_salesforce.exceptions.SalesforceError as error:
-            raise SalesforceError(str(error)) from error
-        except requests.exceptions.RequestException as error:
-            raise NetworkError(str(error)) from error
+        if type_name not in StreamingResource.RESOURCE_TYPES:
+            raise SpecificationError(f"There is not streaming resource type "
+                                     f"with the name '{type_name}'.")
 
-    def _get_resource(self, resource_spec):
-        """Create a streaming resource based on the given *resource_spec*
+        resource_definition = await self._get_resource(type_name,
+                                                       resource_spec)
+        resource_cls = StreamingResource.RESOURCE_TYPES[type_name]
+        return resource_cls(resource_definition)
+
+    async def _get_resource(self, type_name, resource_spec):
+        """Create a streaming resource of type *type_name* based on the
+        given *resource_spec*
 
         If the *resource_spec* contains a single unique identifier like \
         ``Name`` or ``Id`, then the existing resource will be loaded and \
@@ -139,6 +134,7 @@ class StreamingResourceFactory:  # pylint: disable=too-few-public-methods
         resource will be created or an existing one will be updated if \
         a resource already exists with the given ``Name`` attribute.
 
+        :param str type_name: Name of a streaming resource type
         :param dict resource_spec: A resource specification, which either \
         contains all attributes required for creating the resource, or \
         contains a single unique identifier of an existing resource, such as \
@@ -150,75 +146,85 @@ class StreamingResourceFactory:  # pylint: disable=too-few-public-methods
         # identifier
         if len(resource_spec) == 1:
             name, value = list(resource_spec.items())[0]
-            return self._get_resource_by_identifier(name, value)
+            return await self._get_resource_by_identifier(type_name,
+                                                          name, value)
         # otherwise it must be a full resource definition
-        return self._create_resource(resource_spec)
+        return await self._create_resource(type_name, resource_spec)
 
-    def _get_resource_by_identifier(self, identifier_name, identifier_value):
-        """Get the attributes of an existing streaming resource based on the \
-        given *identifier_name* and *identifier_value*
+    async def _get_resource_by_identifier(self, type_name, identifier_name,
+                                          identifier_value):
+        """Get the attributes of an existing streaming resource of type
+        *type_name* based on the given *identifier_name* and *identifier_value*
 
+        :param str type_name: Name of a streaming resource type
         :param str identifier_name: A unique resource identifier like \
         ``Name`` or ``Id``
         :param str identifier_value: The value of the identifier
         :return: Streaming resource attributes
         :rtype: dict
-        :raise RabbitForceValueError: If the identifier_name is not ``Name`` \
+        :raise SpecificationError: If the identifier_name is not ``Name`` \
         or ``Id``
         """
         if identifier_name == "Name":
-            return self._get_resource_by_name(identifier_value)
+            return await self._get_resource_by_name(type_name,
+                                                    identifier_value)
         elif identifier_name == "Id":
-            return self._get_resource_by_id(identifier_value)
+            return await self._get_resource_by_id(type_name, identifier_value)
         else:
-            raise RabbitForceValueError(f"'{identifier_name}' is not a unique "
-                                        f"streaming resource identifier.")
+            raise SpecificationError(f"'{identifier_name}' is not a unique "
+                                     f"streaming resource identifier.")
 
-    def _get_resource_by_id(self, resource_id):
-        """Get the attributes of an existing streaming resource with the \
-        given *resource_id*
+    async def _get_resource_by_id(self, type_name, resource_id):
+        """Get the attributes of an existing streaming resource of type
+        *type_name* with the given *resource_id*
 
+        :param str type_name: Name of a streaming resource type
         :param str resource_id: The id of a streaming resource
         :return: Streaming resource attributes
         :rtype: dict
         """
-        return self.resource_client.get(resource_id)
+        return await self.client.get(type_name, resource_id)
 
-    def _get_resource_by_name(self, name):
-        """Get the attributes of an existing streaming resource with the \
-        given *name*
+    async def _get_resource_by_name(self, type_name, name):
+        """Get the attributes of an existing streaming resource of type
+        *type_name* with the given *name*
 
+        :param str type_name: Name of a streaming resource type
         :param str name: The name of a streaming resource
         :return: Streaming resource attributes
         :rtype: dict
         """
-        resource_id = self._get_resource_id_by_name(name)
-        return self._get_resource_by_id(resource_id)
+        resource_id = await self._get_resource_id_by_name(type_name, name)
+        return await self._get_resource_by_id(type_name, resource_id)
 
-    def _get_resource_id_by_name(self, name):
-        """Find the id value of the resource with the given *name*
+    async def _get_resource_id_by_name(self, type_name, name):
+        """Find the id value of the resource of type *type_name* with the
+        given *name*
 
+        :param str type_name: Name of a streaming resource type
         :param str name: The name of a streaming resource
         :return: The id of a streaming resource
         :rtype: str
         """
         # get the id for the given name
-        response = self.rest_client.query(f"SELECT Id FROM {self.type_name} "
-                                          f"WHERE Name='{name}'")
+        response = await self.client.query(f"SELECT Id FROM {type_name} "
+                                           f"WHERE Name='{name}'")
         # if there are not records with the given name raise an error
         if not response["records"]:
-            raise SalesforceError(f"There is no {self.type_name} with "
-                                  f"the name '{name}'.")
+            raise SalesforceNotFoundError(f"There is no {type_name} with "
+                                          f"the name '{name}'.")
         # return the id
         return response["records"][0]["Id"]
 
-    def _create_resource(self, resource_definition):
-        """Create a streaming resource based on the given *resource_definition*
+    async def _create_resource(self, type_name, resource_definition):
+        """Create a streaming resource of type *type_name* based on the
+        given *resource_definition*
 
         Based on the *resource_definition* a new resource will be created \
         or an existing one will be updated if a resource already exists with \
          the given ``Name`` attribute.
 
+        :param str type_name: Name of a streaming resource type
         :param dict resource_definition: A resource definition, which \
         contains all attributes required for creating the resource
         :return: Streaming resource attributes
@@ -228,12 +234,15 @@ class StreamingResourceFactory:  # pylint: disable=too-few-public-methods
         # try to find the resource with the given name, and if it exists then
         # update it
         try:
-            resource_id = self._get_resource_id_by_name(name)
-            self.resource_client.update(resource_id, resource_definition)
-            response = self._get_resource_by_id(resource_id)
+            resource_id = await self._get_resource_id_by_name(type_name, name)
+            await self.client.update(type_name, resource_id,
+                                     resource_definition)
+            response = await self._get_resource_by_id(type_name, resource_id)
 
         # if there is no resource with the given name then create it
-        except SalesforceError:
-            create_response = self.resource_client.create(resource_definition)
-            response = self._get_resource_by_id(create_response["id"])
+        except SalesforceNotFoundError:
+            create_response = await self.client.create(type_name,
+                                                       resource_definition)
+            response = await self._get_resource_by_id(type_name,
+                                                      create_response["id"])
         return response

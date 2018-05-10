@@ -1,6 +1,8 @@
 from asynctest import TestCase, mock
 
 from rabbit_force.salesforce_org import SalesforceOrg
+from rabbit_force.salesforce_api import SalesforceApi
+from rabbit_force.streaming_resources import StreamingResourceFactory
 
 
 class TestSalesforceOrg(TestCase):
@@ -31,61 +33,44 @@ class TestSalesforceOrg(TestCase):
             self.username,
             self.password
         )
+        self.assertIs(self.org.authenticator, self.auth_cls.return_value)
         self.assertEqual(self.org.resources, {})
-        self.assertIsNone(self.org._rest_client)
+        self.assertIsInstance(self.org._rest_client, SalesforceApi)
+        self.assertIsInstance(self.org._resource_factory,
+                              StreamingResourceFactory)
 
-    @mock.patch("rabbit_force.salesforce_org.RestClient")
-    async def test_get_client(self, rest_client_cls):
-        self.authenticator.access_token = "token"
-
-        result = await self.org._get_client()
-
-        self.assertEqual(result, rest_client_cls.return_value)
-        rest_client_cls.assert_called_with(
-            instance_url=self.authenticator.instance_url,
-            session_id=self.authenticator.access_token
-        )
-        self.assertEqual(self.org._rest_client, result)
-
-    async def test_get_client_existing_client(self):
-        self.org._rest_client = object()
-
-        result = await self.org._get_client()
-
-        self.assertEqual(result, self.org._rest_client)
-
-    @mock.patch("rabbit_force.salesforce_org.StreamingResourceFactory")
-    async def test_add_resource(self, factory_cls):
+    async def test_add_resource(self):
         resource_type = object()
         resource_spec = object()
-        factory = mock.MagicMock()
-        factory_cls.return_value = factory
+        self.org._resource_factory = mock.MagicMock()
+        self.org._resource_factory.create_resource = mock.CoroutineMock()
         durable = True
         self.org._get_client = mock.CoroutineMock()
 
         result = await self.org.add_resource(resource_type, resource_spec,
                                              durable)
 
-        self.assertEqual(result, factory.get_resource.return_value)
-        factory_cls.assert_called_with(
-            resource_type,
-            self.org._get_client.return_value
+        self.assertEqual(
+            result,
+            self.org._resource_factory.create_resource.return_value
         )
-        factory.get_resource.assert_called_with(resource_spec)
+        self.org._resource_factory.create_resource.assert_called_with(
+            resource_type,
+            resource_spec
+        )
         self.assertEqual(result.durable, durable)
         self.assertEqual(self.org.resources[result.name], result)
 
     async def test_remove_resource(self):
         resource = mock.MagicMock()
         resource.type_name = "name"
-        resource_client = mock.MagicMock()
-        client = mock.MagicMock()
-        client.name = resource_client
-        self.org._get_client = mock.CoroutineMock(return_value=client)
+        self.org._rest_client = mock.MagicMock()
+        self.org._rest_client.delete = mock.CoroutineMock()
 
         await self.org.remove_resource(resource)
 
-        resource_client.delete.assert_called_with(resource.id)
+        self.org._rest_client.delete.assert_called_with(resource.type_name,
+                                                        resource.id)
 
     async def test_cleanup_resources(self):
         non_durable1 = mock.MagicMock()
@@ -107,3 +92,11 @@ class TestSalesforceOrg(TestCase):
             mock.call(non_durable1),
             mock.call(non_durable2)
         ])
+
+    async def test_close(self):
+        self.org._rest_client = mock.MagicMock()
+        self.org._rest_client.close = mock.CoroutineMock()
+
+        await self.org.close()
+
+        self.org._rest_client.close.assert_called()

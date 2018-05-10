@@ -1,8 +1,8 @@
 """Class definitions for representing Salesforce orgs"""
 from aiosfstream import PasswordAuthenticator
-from simple_salesforce import Salesforce as RestClient
 
 from .streaming_resources import StreamingResourceFactory
+from .salesforce_api import SalesforceApi
 
 
 class SalesforceOrg:
@@ -27,23 +27,9 @@ class SalesforceOrg:
         #: Dictionary of available streaming resources by name
         self.resources = {}
         #: Salesforce REST API client
-        self._rest_client = None
-
-    async def _get_client(self):
-        """Get a Salesforce REST API client object
-
-        :return: REST API client object
-        :rtype: simple_salesforce.Salesforce
-        """
-        # if the client doesn't exists then create it, otherwise return the
-        # existing object
-        if not self._rest_client:
-            await self.authenticator.authenticate()
-            self._rest_client = RestClient(
-                instance_url=self.authenticator.instance_url,
-                session_id=self.authenticator.access_token
-            )
-        return self._rest_client
+        self._rest_client = SalesforceApi(self.authenticator)
+        # Resource _resource_factory
+        self._resource_factory = StreamingResourceFactory(self._rest_client)
 
     async def add_resource(self, resource_type, resource_spec, durable=True):
         """Add a streaming resource to the Salesforce org
@@ -58,12 +44,9 @@ class SalesforceOrg:
         :return: A streaming resource
         :rtype: StreamingResource
         """
-        # create the resource factory
-        rest_client = await self._get_client()
-        factory = StreamingResourceFactory(resource_type, rest_client)
-
         # create the resource and set the durability
-        resource = factory.get_resource(resource_spec)
+        resource = await self._resource_factory.create_resource(resource_type,
+                                                                resource_spec)
         resource.durable = durable
 
         # store the resource by name
@@ -75,12 +58,8 @@ class SalesforceOrg:
 
         :param StreamingResource resource: A streaming resource
         """
-        # get the client and resource specific client
-        rest_client = await self._get_client()
-        resource_client = getattr(rest_client, resource.type_name)
-
         # delete the resource with the given id from the org
-        resource_client.delete(resource.id)
+        self._rest_client.delete(resource.type_name, resource.id)
 
     async def cleanup_resources(self):
         """Remove streaming resources which are not marked as durable"""
@@ -88,3 +67,11 @@ class SalesforceOrg:
                                  if not res.durable]
         for resource in non_durable_resources:
             await self.remove_resource(resource)
+
+    async def close(self):
+        """Close the Salesforce org
+
+        This method should be called when the client finished all interaction
+        with the object.
+        """
+        await self._rest_client.close()

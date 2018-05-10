@@ -6,7 +6,7 @@ import aiohttp
 
 from . import exceptions as exc
 
-
+#: Salesforce REST API version
 API_VERSION = 42.0
 
 
@@ -115,7 +115,7 @@ class SalesforceApi:
         :param params: URL parameters and their values
         :type params: dict or None
         :return: The data returned by the server
-        :rtype: dict
+        :rtype: dict or None
         :raise NetworkError: If the request fails due to a network failure
         :raise SalesforceRestError: If the status code of the response marks \
         a failure
@@ -144,7 +144,11 @@ class SalesforceApi:
         await self._verify_response(response)
 
         # return the data returned by the server
-        return await response.json()
+        try:
+            return await response.json()
+        # if the returned response data is not JSON then return None
+        except aiohttp.ContentTypeError:
+            return None
 
     async def _request_with_retry(self, method, path, json=None, params=None):
         """Send an HTTP request with the given *method* to the url defined by \
@@ -161,7 +165,7 @@ class SalesforceApi:
         :param params: URL parameters and their values
         :type params: dict or None
         :return: The data returned by the server
-        :rtype: dict
+        :rtype: dict or None
         :raise NetworkError: If the request fails due to a network failure
         :raise SalesforceRestError: If the status code of the response marks \
         a failure
@@ -201,7 +205,7 @@ class SalesforceApi:
 
         :param query:
         :return: The data returned by the server
-        :rtype: dict
+        :rtype: dict or None
         :raise NetworkError: If the request fails due to a network failure
         :raise SalesforceRestError: If the status code of the response marks \
         a failure
@@ -215,7 +219,7 @@ class SalesforceApi:
         :param str resource_name: The name of the resource type
         :param dict data: Field values
         :return: The data returned by the server
-        :rtype: dict
+        :rtype: dict or None
         :raise NetworkError: If the request fails due to a network failure
         :raise SalesforceRestError: If the status code of the response marks \
         a failure
@@ -231,7 +235,7 @@ class SalesforceApi:
         :param str record_id: The id of the resource
         :param dict data: Field values
         :return: The data returned by the server
-        :rtype: dict
+        :rtype: dict or None
         :raise NetworkError: If the request fails due to a network failure
         :raise SalesforceRestError: If the status code of the response marks \
         a failure
@@ -245,7 +249,7 @@ class SalesforceApi:
         :param str resource_name: The name of the resource type
         :param str record_id: The id of the resource
         :return: The data returned by the server
-        :rtype: dict
+        :rtype: dict or None
         :raise NetworkError: If the request fails due to a network failure
         :raise SalesforceRestError: If the status code of the response marks \
         a failure
@@ -259,7 +263,7 @@ class SalesforceApi:
         :param str resource_name: The name of the resource type
         :param str record_id: The id of the resource
         :return: The data returned by the server
-        :rtype: dict
+        :rtype: dict or None
         :raise NetworkError: If the request fails due to a network failure
         :raise SalesforceRestError: If the status code of the response marks \
         a failure

@@ -171,6 +171,38 @@ class TestSalesforceApi(TestCase):
                                            params=params,
                                            headers=expected_headers)
 
+    async def test_request_content_error(self):
+        self.auth.token_type = "type"
+        self.auth.access_token = "token"
+        base_url = "base_url"
+        response = mock.MagicMock()
+        error = aiohttp.ContentTypeError(None, None)
+        response.json = mock.CoroutineMock(side_effect=error)
+        session = mock.MagicMock()
+        session.request = mock.CoroutineMock(return_value=response)
+        self.api._get_http_session = mock.CoroutineMock(return_value=session)
+        self.api._get_base_url = mock.CoroutineMock(return_value=base_url)
+        self.api._verify_response = mock.CoroutineMock()
+        method = "method"
+        path = "path"
+        json = object()
+        params = object()
+        auth_header = self.auth.token_type + " " + self.auth.access_token
+        expected_headers = {"Authorization": auth_header}
+
+        result = await self.api._request(method,
+                                         path,
+                                         json=json,
+                                         params=params)
+
+        self.assertIsNone(result)
+        session.request.assert_called_with(method,
+                                           base_url + path,
+                                           json=json,
+                                           params=params,
+                                           headers=expected_headers)
+        self.api._verify_response.assert_called_with(response)
+
     async def test_request_with_retry(self):
         response_data = object()
         self.api._request = mock.CoroutineMock(return_value=response_data)

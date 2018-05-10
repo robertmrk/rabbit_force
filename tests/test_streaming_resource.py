@@ -1,13 +1,10 @@
-from unittest import TestCase, mock
-
-import requests.exceptions
-import simple_salesforce.exceptions
+from asynctest import TestCase, mock
 
 from rabbit_force.streaming_resources import StreamingResource, \
     PushTopicResource, StreamingChannelResource, StreamingResourceFactory, \
     StreamingResourceType
-from rabbit_force.exceptions import NetworkError, SalesforceError, \
-    RabbitForceValueError
+from rabbit_force.exceptions import SalesforceNotFoundError, \
+    SpecificationError
 
 
 class TestStreamingResource(TestCase):
@@ -74,182 +71,192 @@ class TestStreamingResourceFactory(TestCase):
     def setUp(self):
         self.type_name = "resource_type"
         self.rest_client = mock.MagicMock()
-        self.resource_client = mock.MagicMock()
-        setattr(self.rest_client, self.type_name, self.resource_client)
-        self.factory = StreamingResourceFactory(self.type_name,
-                                                self.rest_client)
+        self.factory = StreamingResourceFactory(self.rest_client)
 
-    def test_get_resource(self):
+    async def test_create_resource(self):
         type_cls = mock.MagicMock()
         StreamingResource.RESOURCE_TYPES[self.type_name] = type_cls
         spec = {"Name": "resource_name"}
-        self.factory._get_resource = mock.MagicMock(return_value=spec)
+        self.factory._get_resource = mock.CoroutineMock(return_value=spec)
 
-        result = self.factory.get_resource(spec)
+        result = await self.factory.create_resource(self.type_name, spec)
 
         self.assertEqual(result, type_cls.return_value)
-        self.factory._get_resource.assert_called_with(spec)
+        self.factory._get_resource.assert_called_with(self.type_name, spec)
         type_cls.assert_called_with(spec)
         del StreamingResource.RESOURCE_TYPES[self.type_name]
 
-    def test_get_resource_network_error(self):
-        error_message = "message"
-        error = requests.exceptions.RequestException(error_message)
-        self.factory._get_resource = mock.MagicMock(side_effect=error)
+    async def test_create_resource_invalid_type_name(self):
+        spec = {"Name": "resource_name"}
+        self.factory._get_resource = mock.CoroutineMock(return_value=spec)
 
-        with self.assertRaisesRegex(NetworkError, error_message):
-            self.factory.get_resource({})
+        with self.assertRaisesRegex(SpecificationError,
+                                    f"There is not streaming resource type "
+                                    f"with the name '{self.type_name}'."):
+            await self.factory.create_resource(self.type_name, spec)
 
-    def test_get_resource_salesforce_error(self):
-        error_message = "message"
-        error = simple_salesforce.exceptions.SalesforceError("url", 400,
-                                                             "resource",
-                                                             error_message)
-        self.factory._get_resource = mock.MagicMock(side_effect=error)
+        self.factory._get_resource.assert_not_called()
 
-        with self.assertRaisesRegex(SalesforceError, str(error)):
-            self.factory.get_resource({})
-
-    def test__get_resource_with_single_value_pair(self):
-        self.factory._get_resource_by_identifier = mock.MagicMock()
-        self.factory._create_resource = mock.MagicMock()
+    async def test__get_resource_with_single_value_pair(self):
+        self.factory._get_resource_by_identifier = mock.CoroutineMock()
+        self.factory._create_resource = mock.CoroutineMock()
         spec = {"Id": "id"}
 
-        result = self.factory._get_resource(spec)
+        result = await self.factory._get_resource(self.type_name, spec)
 
         self.assertEqual(result,
                          self.factory._get_resource_by_identifier.return_value)
-        self.factory._get_resource_by_identifier.assert_called_with("Id", "id")
+        self.factory._get_resource_by_identifier.assert_called_with(
+            self.type_name, "Id", "id")
         self.factory._create_resource.assert_not_called()
 
-    def test__get_resource_with_multiple_value_pairs(self):
-        self.factory._get_resource_by_identifier = mock.MagicMock()
-        self.factory._create_resource = mock.MagicMock()
+    async def test__get_resource_with_multiple_value_pairs(self):
+        self.factory._get_resource_by_identifier = mock.CoroutineMock()
+        self.factory._create_resource = mock.CoroutineMock()
         spec = {"Name": "name", "Id": "id"}
 
-        result = self.factory._get_resource(spec)
+        result = await self.factory._get_resource(self.type_name, spec)
 
         self.assertEqual(result, self.factory._create_resource.return_value)
-        self.factory._create_resource.assert_called_with(spec)
+        self.factory._create_resource.assert_called_with(self.type_name, spec)
         self.factory._get_resource_by_identifier.assert_not_called()
 
-    def test_get_resource_by_identifier_for_id(self):
-        self.factory._get_resource_by_id = mock.MagicMock()
-        self.factory._get_resource_by_name = mock.MagicMock()
+    async def test_get_resource_by_identifier_for_id(self):
+        self.factory._get_resource_by_id = mock.CoroutineMock()
+        self.factory._get_resource_by_name = mock.CoroutineMock()
 
-        result = self.factory._get_resource_by_identifier("Id", "id")
+        result = await self.factory._get_resource_by_identifier(self.type_name,
+                                                                "Id", "id")
 
         self.assertEqual(result, self.factory._get_resource_by_id.return_value)
-        self.factory._get_resource_by_id.assert_called_with("id")
+        self.factory._get_resource_by_id.assert_called_with(self.type_name,
+                                                            "id")
         self.factory._get_resource_by_name.assert_not_called()
 
-    def test_get_resource_by_identifier_for_name(self):
-        self.factory._get_resource_by_id = mock.MagicMock()
-        self.factory._get_resource_by_name = mock.MagicMock()
+    async def test_get_resource_by_identifier_for_name(self):
+        self.factory._get_resource_by_id = mock.CoroutineMock()
+        self.factory._get_resource_by_name = mock.CoroutineMock()
 
-        result = self.factory._get_resource_by_identifier("Name", "name")
+        result = await self.factory._get_resource_by_identifier(self.type_name,
+                                                                "Name", "name")
 
         self.assertEqual(result,
                          self.factory._get_resource_by_name.return_value)
-        self.factory._get_resource_by_name.assert_called_with("name")
+        self.factory._get_resource_by_name.assert_called_with(self.type_name,
+                                                              "name")
         self.factory._get_resource_by_id.assert_not_called()
 
-    def test_get_resource_by_identifier_error(self):
-        self.factory._get_resource_by_id = mock.MagicMock()
-        self.factory._get_resource_by_name = mock.MagicMock()
+    async def test_get_resource_by_identifier_error(self):
+        self.factory._get_resource_by_id = mock.CoroutineMock()
+        self.factory._get_resource_by_name = mock.CoroutineMock()
         identifier_name = "unknown"
 
-        with self.assertRaisesRegex(RabbitForceValueError,
+        with self.assertRaisesRegex(SpecificationError,
                                     f"'{identifier_name}' is not a unique "
                                     f"streaming resource identifier."):
-            self.factory._get_resource_by_identifier(identifier_name, "value")
+            await self.factory._get_resource_by_identifier(self.type_name,
+                                                           identifier_name,
+                                                           "value")
 
         self.factory._get_resource_by_name.assert_not_called()
         self.factory._get_resource_by_id.assert_not_called()
 
-    def test_get_resource_by_id(self):
+    async def test_get_resource_by_id(self):
         resource_id = "id"
+        self.rest_client.get = mock.CoroutineMock()
 
-        result = self.factory._get_resource_by_id(resource_id)
+        result = await self.factory._get_resource_by_id(self.type_name,
+                                                        resource_id)
 
-        self.assertEqual(result, self.resource_client.get.return_value)
-        self.resource_client.get.assert_called_with(resource_id)
+        self.assertEqual(result, self.rest_client.get.return_value)
+        self.rest_client.get.assert_called_with(self.type_name, resource_id)
 
-    def test_get_resource_id_by_name(self):
+    async def test_get_resource_id_by_name(self):
         id_value = "id_value"
         response = {
             "records": [{"Id": id_value}]
         }
-        self.rest_client.query.return_value = response
+        self.rest_client.query = mock.CoroutineMock(return_value=response)
         name = "name"
 
-        result = self.factory._get_resource_id_by_name(name)
+        result = await self.factory._get_resource_id_by_name(self.type_name,
+                                                             name)
 
         self.assertEqual(result, id_value)
         self.rest_client.query.assert_called_with(
             f"SELECT Id FROM {self.type_name} WHERE Name='{name}'")
 
-    def test_get_resource_id_by_name_no_results(self):
+    async def test_get_resource_id_by_name_no_results(self):
         response = {
             "records": []
         }
-        self.rest_client.query.return_value = response
+        self.rest_client.query = mock.CoroutineMock(return_value=response)
         name = "name"
-        with self.assertRaisesRegex(SalesforceError,
+        with self.assertRaisesRegex(SalesforceNotFoundError,
                                     f"There is no {self.type_name} with "
                                     f"the name '{name}'."):
-            self.factory._get_resource_id_by_name(name)
+            await self.factory._get_resource_id_by_name(self.type_name, name)
 
         self.rest_client.query.assert_called_with(
             f"SELECT Id FROM {self.type_name} WHERE Name='{name}'")
 
-    def test_create_resource_with_existing_resource(self):
+    async def test_create_resource_with_existing_resource(self):
         spec = {"Name": "resource_name"}
         resource_id = "id"
         resource = {}
-        self.factory._get_resource_id_by_name = mock.MagicMock(
+        self.factory._get_resource_id_by_name = mock.CoroutineMock(
             return_value=resource_id
         )
-        self.factory._get_resource_by_id = mock.MagicMock(
+        self.factory._get_resource_by_id = mock.CoroutineMock(
             return_value=resource
         )
+        self.rest_client.update = mock.CoroutineMock()
 
-        result = self.factory._create_resource(spec)
+        result = await self.factory._create_resource(self.type_name, spec)
 
         self.assertEqual(result, resource)
-        self.factory._get_resource_id_by_name.assert_called_with(spec["Name"])
-        self.resource_client.update.assert_called_with(resource_id, spec)
-        self.factory._get_resource_by_id.assert_called_with(resource_id)
+        self.factory._get_resource_id_by_name.assert_called_with(
+            self.type_name, spec["Name"])
+        self.rest_client.update.assert_called_with(self.type_name,
+                                                   resource_id, spec)
+        self.factory._get_resource_by_id.assert_called_with(self.type_name,
+                                                            resource_id)
 
-    def test_create_resource_with_non_existing_resource(self):
+    async def test_create_resource_with_non_existing_resource(self):
         spec = {"Name": "resource_name"}
         resource_id = "id"
         resource = {}
-        self.factory._get_resource_id_by_name = mock.MagicMock(
-            side_effect=SalesforceError()
+        self.factory._get_resource_id_by_name = mock.CoroutineMock(
+            side_effect=SalesforceNotFoundError()
         )
-        self.factory._get_resource_by_id = mock.MagicMock(
+        self.factory._get_resource_by_id = mock.CoroutineMock(
             return_value=resource
         )
-        self.resource_client.create.return_value = {"id": resource_id}
+        self.rest_client.create = mock.CoroutineMock(
+            return_value={"id": resource_id}
+        )
 
-        result = self.factory._create_resource(spec)
+        result = await self.factory._create_resource(self.type_name, spec)
 
         self.assertEqual(result, resource)
-        self.factory._get_resource_id_by_name.assert_called_with(spec["Name"])
-        self.resource_client.create.assert_called_with(spec)
-        self.factory._get_resource_by_id.assert_called_with(resource_id)
+        self.factory._get_resource_id_by_name.assert_called_with(
+            self.type_name, spec["Name"])
+        self.rest_client.create.assert_called_with(self.type_name, spec)
+        self.factory._get_resource_by_id.assert_called_with(self.type_name,
+                                                            resource_id)
 
-    def test_get_resource_by_name(self):
+    async def test_get_resource_by_name(self):
         resource_id = "id"
-        self.factory._get_resource_id_by_name = mock.MagicMock(
+        self.factory._get_resource_id_by_name = mock.CoroutineMock(
             return_value=resource_id
         )
-        self.factory._get_resource_by_id = mock.MagicMock()
+        self.factory._get_resource_by_id = mock.CoroutineMock()
         name = "name"
 
-        result = self.factory._get_resource_by_name(name)
+        result = await self.factory._get_resource_by_name(self.type_name, name)
 
         self.assertEqual(result, self.factory._get_resource_by_id.return_value)
-        self.factory._get_resource_id_by_name.assert_called_with(name)
-        self.factory._get_resource_by_id.assert_called_with(resource_id)
+        self.factory._get_resource_id_by_name.assert_called_with(
+            self.type_name, name)
+        self.factory._get_resource_by_id.assert_called_with(self.type_name,
+                                                            resource_id)

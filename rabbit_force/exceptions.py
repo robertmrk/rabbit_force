@@ -3,7 +3,7 @@
 Exception hierarchy::
 
     RabbitForceError
-        RabbitForceValueError
+        SpecificationError
         NetworkError
         ServerError
             SalesforceError
@@ -17,8 +17,8 @@ class RabbitForceError(Exception):
     """
 
 
-class RabbitForceValueError(RabbitForceError):
-    """Inappropriate argument value"""
+class SpecificationError(RabbitForceError):
+    """Invalid value or type in the config specification"""
 
 
 class NetworkError(RabbitForceError):
@@ -80,5 +80,5 @@ class StreamingError(SalesforceError):
     """Salesforce streaming error"""
 
 
-class InvalidOperation(RabbitForceValueError):
+class InvalidOperation(SpecificationError):
     """An invalid operation"""
