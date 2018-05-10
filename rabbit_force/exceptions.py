@@ -3,10 +3,22 @@
 Exception hierarchy::
 
     RabbitForceError
+        InvalidOperation
         SpecificationError
         NetworkError
         ServerError
             SalesforceError
+                SalesforceRestError
+                    SalesforceMultipleChoicesError
+                    SalesforceNotModifiedError
+                    SalesforceBadRequestError
+                    SalesforceUnauthorizedError
+                    SalesforceForbiddenError
+                    SalesforceNotFoundError
+                    SalesforceMethodNotAllowedError
+                    SalesforceUnsupportedMediaTypeError
+                    SalesforceInternalServerError
+                StreamingError
 """
 
 
@@ -80,5 +92,5 @@ class StreamingError(SalesforceError):
     """Salesforce streaming error"""
 
 
-class InvalidOperation(SpecificationError):
+class InvalidOperation(RabbitForceError):
     """An invalid operation"""
