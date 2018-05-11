@@ -1,9 +1,11 @@
 """Message source class definitions"""
 import asyncio
 from abc import ABC, abstractmethod
+import pickle
 
-from aiosfstream import Client
+from aiosfstream import Client, ReplayMarkerStorage, ReplayOption
 from aiosfstream.exceptions import AiosfstreamException, ClientInvalidOperation
+import aioredis
 
 from .exceptions import StreamingError, InvalidOperation
 
@@ -54,14 +56,29 @@ class MessageSource(ABC):
 
 class SalesforceOrgMessageSource(MessageSource):
     """Message source for fetching Streaming API messages"""
-    def __init__(self, name, salesforce_org):
+    def __init__(self, name, salesforce_org, replay=ReplayOption.NEW_EVENTS,
+                 replay_fallback=None):
         """
         :param str name: The name of the message source
         :param SalesforceOrg salesforce_org: A salesforce org object
+        :param replay: A ReplayOption or an object capable of storing replay \
+        ids if you want to take advantage of Salesforce's replay extension. \
+        You can use one of the :obj:`ReplayOptions <ReplayOption>`, or \
+        an object that supports the MutableMapping protocol like :obj:`dict`, \
+        :obj:`~collections.defaultdict`, :obj:`~shelve.Shelf` etc. or a \
+        custom :obj:`ReplayMarkerStorage` implementation.
+        :type replay: aiosfstream.ReplayOption, \
+        aiosfstream.ReplayMarkerStorage, collections.abc.MutableMapping or None
+        :param replay_fallback: Replay fallback policy, for when a subscribe \
+        operation fails because a replay id was specified for a message \
+        outside the retention window
+        :type replay_fallback: aiosfstream.ReplayOption
         """
         self.name = name
         self.salesforce_org = salesforce_org
         self.client = Client(self.salesforce_org.authenticator,
+                             replay=replay,
+                             replay_fallback=replay_fallback,
                              connection_timeout=0)
 
     @property
@@ -165,3 +182,73 @@ class MultiMessageSource(MessageSource):
 
         # return the result from the first completed task
         return next(iter(done)).result()
+
+
+class RedisReplayStorage(ReplayMarkerStorage):
+    """Redis ReplayMarkerStorage implementation"""
+    def __init__(self, address, *, key_prefix=None, **kwargs):
+        """
+        :param str address: Server address
+        :param str key_prefix: A prefix string to add to all keys
+        :param dict kwargs: Additional key-value parameters for Redis
+        """
+        super().__init__()
+        self.key_prefix = key_prefix or ""
+        self.address = address
+        self.additional_params = kwargs
+        self._redis = None
+
+    def _get_key(self, subscription):
+        """Create a key value for the given *subscription*
+
+        :param str subscription: The name of the subscription
+        :return: The key value that should be used when writing to the datebase
+        :rtype: str
+        """
+        return self.key_prefix + ":" + subscription
+
+    async def _get_redis(self):
+        """Get a Redis client
+
+        :return: Redis client
+        :rtype: aioredis.Redis
+        """
+        # if not yet initialised then create the redis pool with the address
+        # and the additional redis parameters passed in init
+        if not self._redis:
+            self._redis = await aioredis.create_redis_pool(
+                self.address, **self.additional_params
+            )
+        # return the existing client object
+        return self._redis
+
+    async def get_replay_marker(self, subscription):
+        # get a key for the subscription
+        key = self._get_key(subscription)
+
+        # get the client object
+        redis = await self._get_redis()
+
+        # retrieve the value of the key
+        result = await redis.get(key)
+
+        # if there is a value stored for the key, then return the deserialized
+        # value
+        if result is not None:
+            return pickle.loads(result)
+
+        # otherwise return None
+        return None
+
+    async def set_replay_marker(self, subscription, replay_marker):
+        # get a key for the subscription
+        key = self._get_key(subscription)
+
+        # get the client object
+        redis = await self._get_redis()
+
+        # serialize the replay marker
+        value = pickle.dumps(replay_marker)
+
+        # set the value for the key
+        await redis.set(key, value)

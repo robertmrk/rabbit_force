@@ -4,7 +4,7 @@ from asynctest import TestCase, mock
 from aiosfstream.exceptions import ClientInvalidOperation, AiosfstreamException
 
 from rabbit_force.message_source import SalesforceOrgMessageSource, \
-    MultiMessageSource
+    MultiMessageSource, RedisReplayStorage
 from rabbit_force.exceptions import InvalidOperation, StreamingError
 
 
@@ -17,12 +17,23 @@ class TestSalesforceOrgMessageSource(TestCase):
         self.client_cls = client_cls
         self.org = mock.MagicMock()
         self.org.authenticator = mock.MagicMock()
-        self.source = SalesforceOrgMessageSource(self.name, self.org)
+        self.replay = object()
+        self.replay_fallback = object()
+        self.source = SalesforceOrgMessageSource(
+            self.name,
+            self.org,
+            replay=self.replay,
+            replay_fallback=self.replay_fallback
+        )
 
     def test_init(self):
         self.assertEqual(self.source.name, self.name)
-        self.client_cls.assert_called_with(self.org.authenticator,
-                                           connection_timeout=0)
+        self.client_cls.assert_called_with(
+            self.org.authenticator,
+            replay=self.replay,
+            replay_fallback=self.replay_fallback,
+            connection_timeout=0
+        )
         self.assertEqual(self.source.client, self.client)
         self.assertEqual(self.source.salesforce_org, self.org)
 
@@ -181,3 +192,100 @@ class TestMultiMessageSource(TestCase):
             await sleep_task
         with self.assertRaises(asyncio.CancelledError):
             await result_task
+
+
+class TestRedisReplayStorage(TestCase):
+    def setUp(self):
+        self.address = "address"
+        self.prefix = None
+        self.additional_params = {"foo": "bar"}
+        self.replay = RedisReplayStorage(self.address, key_prefix=self.prefix,
+                                         **self.additional_params)
+
+    def test_init(self):
+        self.assertEqual(self.replay.address, self.address)
+        self.assertEqual(self.replay.key_prefix, "")
+        self.assertEqual(self.replay.additional_params, self.additional_params)
+        self.assertIsNone(self.replay._redis)
+
+    def test_get_key(self):
+        self.replay.key_prefix = "prefix"
+        subscription = "subscription"
+
+        result = self.replay._get_key(subscription)
+
+        self.assertEqual(result, self.replay.key_prefix + ":" + subscription)
+
+    @mock.patch("rabbit_force.message_source.aioredis.create_redis_pool")
+    async def test_get_redis(self, create_redis_pool):
+        result = await self.replay._get_redis()
+
+        self.assertEqual(result, create_redis_pool.return_value)
+        self.assertEqual(self.replay._redis, create_redis_pool.return_value)
+        create_redis_pool.assert_called_with(self.replay.address,
+                                             **self.additional_params)
+
+    @mock.patch("rabbit_force.message_source.aioredis.create_redis_pool")
+    async def test_get_redis_if_exists(self, create_redis_pool):
+        self.replay._redis = object()
+
+        result = await self.replay._get_redis()
+
+        self.assertEqual(result, self.replay._redis)
+        create_redis_pool.assert_not_called()
+
+    @mock.patch("rabbit_force.message_source.pickle.loads")
+    async def test_get_replay_marker(self, pickle_loads):
+        redis = mock.MagicMock()
+        key = "key"
+        self.replay._get_redis = mock.CoroutineMock(return_value=redis)
+        self.replay._get_key = mock.MagicMock(return_value=key)
+        serialized_value = object()
+        redis.get = mock.CoroutineMock(return_value=serialized_value)
+        deserialized_value = object()
+        pickle_loads.return_value = deserialized_value
+        subscription = "subscription"
+
+        result = await self.replay.get_replay_marker(subscription)
+
+        self.assertEqual(result, deserialized_value)
+        self.replay._get_key.assert_called_with(subscription)
+        redis.get.assert_called_with(key)
+        pickle_loads.assert_called_with(serialized_value)
+
+    @mock.patch("rabbit_force.message_source.pickle.loads")
+    async def test_get_replay_marker_value_none(self, pickle_loads):
+        redis = mock.MagicMock()
+        key = "key"
+        self.replay._get_redis = mock.CoroutineMock(return_value=redis)
+        self.replay._get_key = mock.MagicMock(return_value=key)
+        serialized_value = None
+        redis.get = mock.CoroutineMock(return_value=serialized_value)
+        deserialized_value = object()
+        pickle_loads.return_value = deserialized_value
+        subscription = "subscription"
+
+        result = await self.replay.get_replay_marker(subscription)
+
+        self.assertIsNone(result)
+        self.replay._get_key.assert_called_with(subscription)
+        redis.get.assert_called_with(key)
+        pickle_loads.assert_not_called()
+
+    @mock.patch("rabbit_force.message_source.pickle.dumps")
+    async def test_set_replay_marker(self, pickle_dumps):
+        redis = mock.MagicMock()
+        key = "key"
+        self.replay._get_redis = mock.CoroutineMock(return_value=redis)
+        self.replay._get_key = mock.MagicMock(return_value=key)
+        serialized_value = object()
+        deserialized_value = object()
+        redis.set = mock.CoroutineMock()
+        pickle_dumps.return_value = serialized_value
+        subscription = "subscription"
+
+        await self.replay.set_replay_marker(subscription, deserialized_value)
+
+        self.replay._get_key.assert_called_with(subscription)
+        pickle_dumps.assert_called_with(deserialized_value)
+        redis.set.assert_called_with(key, serialized_value)
