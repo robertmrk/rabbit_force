@@ -55,9 +55,11 @@ class MessageSource(ABC):
 
 
 class SalesforceOrgMessageSource(MessageSource):
+    # pylint: disable=too-many-arguments
+
     """Message source for fetching Streaming API messages"""
     def __init__(self, name, salesforce_org, replay=ReplayOption.NEW_EVENTS,
-                 replay_fallback=None):
+                 replay_fallback=None, loop=None):
         """
         :param str name: The name of the message source
         :param SalesforceOrg salesforce_org: A salesforce org object
@@ -73,14 +75,22 @@ class SalesforceOrgMessageSource(MessageSource):
         operation fails because a replay id was specified for a message \
         outside the retention window
         :type replay_fallback: aiosfstream.ReplayOption
+        :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
+                     schedule tasks. If *loop* is ``None`` then
+                     :func:`asyncio.get_event_loop` is used to get the default
+                     event loop.
         """
+        #: Event loop
+        self._loop = loop or asyncio.get_event_loop()
         self.name = name
         self.salesforce_org = salesforce_org
         self.client = Client(self.salesforce_org.authenticator,
                              replay=replay,
                              replay_fallback=replay_fallback,
-                             connection_timeout=0)
+                             connection_timeout=0,
+                             loop=self._loop)
 
+    # pylint: enable=too-many-arguments
     @property
     def closed(self):
         return self.client.closed
@@ -127,10 +137,16 @@ class SalesforceOrgMessageSource(MessageSource):
 class MultiMessageSource(MessageSource):
     """Message source to gather and fetch messages from multiple message
     sources"""
-    def __init__(self, sources):
+    def __init__(self, sources, loop=None):
         """
         :param list[MessageSource] sources: A list of message sources
+        :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
+                     schedule tasks. If *loop* is ``None`` then
+                     :func:`asyncio.get_event_loop` is used to get the default
+                     event loop.
         """
+        #: Event loop
+        self._loop = loop or asyncio.get_event_loop()
         self.sources = list(sources)
         self._closed = True
 
@@ -161,14 +177,16 @@ class MultiMessageSource(MessageSource):
 
     async def get_message(self):
         # create tasks for waiting on incoming messages from all sources
-        tasks = [asyncio.ensure_future(_.get_message()) for _ in self.sources
+        tasks = [asyncio.ensure_future(_.get_message(),
+                                       loop=self._loop) for _ in self.sources
                  if not _.closed or _.has_pending_messages]
 
         try:
             # wait until the first task completes
             done, pending = await asyncio.wait(
                 tasks,
-                return_when=asyncio.FIRST_COMPLETED
+                return_when=asyncio.FIRST_COMPLETED,
+                loop=self._loop
             )
         except asyncio.CancelledError:
             # if canceled, then cancel all the waiting tasks
@@ -186,13 +204,19 @@ class MultiMessageSource(MessageSource):
 
 class RedisReplayStorage(ReplayMarkerStorage):
     """Redis ReplayMarkerStorage implementation"""
-    def __init__(self, address, *, key_prefix=None, **kwargs):
+    def __init__(self, address, *, key_prefix=None, loop=None, **kwargs):
         """
         :param str address: Server address
         :param str key_prefix: A prefix string to add to all keys
+        :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
+                     schedule tasks. If *loop* is ``None`` then
+                     :func:`asyncio.get_event_loop` is used to get the default
+                     event loop.
         :param dict kwargs: Additional key-value parameters for Redis
         """
         super().__init__()
+        #: Event loop
+        self._loop = loop or asyncio.get_event_loop()
         self.key_prefix = key_prefix or ""
         self.address = address
         self.additional_params = kwargs
@@ -217,7 +241,7 @@ class RedisReplayStorage(ReplayMarkerStorage):
         # and the additional redis parameters passed in init
         if not self._redis:
             self._redis = await aioredis.create_redis_pool(
-                self.address, **self.additional_params
+                self.address, loop=self._loop, **self.additional_params
             )
         # return the existing client object
         return self._redis

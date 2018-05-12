@@ -22,7 +22,8 @@ class TestSalesforceOrg(TestCase):
             self.consumer_key,
             self.consumer_secret,
             self.username,
-            self.password
+            self.password,
+            loop=self.loop
         )
 
     def test_init(self):
@@ -36,6 +37,7 @@ class TestSalesforceOrg(TestCase):
         self.assertIs(self.org.authenticator, self.auth_cls.return_value)
         self.assertEqual(self.org.resources, {})
         self.assertIsInstance(self.org._rest_client, SalesforceApi)
+        self.assertEqual(self.org._rest_client._loop, self.loop)
         self.assertIsInstance(self.org._resource_factory,
                               StreamingResourceFactory)
 

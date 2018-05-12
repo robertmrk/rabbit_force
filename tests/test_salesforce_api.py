@@ -12,7 +12,7 @@ class TestSalesforceApi(TestCase):
     def setUp(self):
         self.auth = mock.MagicMock()
         self.auth.authenticate = mock.CoroutineMock()
-        self.api = SalesforceApi(self.auth)
+        self.api = SalesforceApi(self.auth, loop=self.loop)
 
     async def test_get_http_session(self):
         self.api._session = mock.MagicMock()
@@ -29,6 +29,7 @@ class TestSalesforceApi(TestCase):
         result = await self.api._get_http_session()
 
         self.assertIs(result, session_cls.return_value)
+        session_cls.assert_called_with(loop=self.loop)
 
     @mock.patch("rabbit_force.salesforce_api.aiohttp.ClientSession")
     async def test_get_http_session_creates_session_if_closed(
@@ -39,6 +40,7 @@ class TestSalesforceApi(TestCase):
         result = await self.api._get_http_session()
 
         self.assertIs(result, session_cls.return_value)
+        session_cls.assert_called_with(loop=self.loop)
 
     async def test_get_base_url(self):
         self.api._base_url = "url"

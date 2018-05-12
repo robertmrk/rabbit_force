@@ -1,4 +1,6 @@
 """Class definitions for representing Salesforce orgs"""
+import asyncio
+
 from aiosfstream import PasswordAuthenticator
 
 from .streaming_resources import StreamingResourceFactory
@@ -6,8 +8,10 @@ from .salesforce_api import SalesforceApi
 
 
 class SalesforceOrg:
+    # pylint: disable=too-many-arguments
     """Represents a Salesforce org, capable of managing streaming resources"""
-    def __init__(self, consumer_key, consumer_secret, username, password):
+    def __init__(self, consumer_key, consumer_secret, username, password,
+                 loop=None):
         """
         :param str consumer_key: Consumer key from the Salesforce connected \
         app definition
@@ -15,7 +19,13 @@ class SalesforceOrg:
         connected app definition
         :param str username: Salesforce username
         :param str password: Salesforce password
+        :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
+                     schedule tasks. If *loop* is ``None`` then
+                     :func:`asyncio.get_event_loop` is used to get the default
+                     event loop.
         """
+        #: Event loop
+        self._loop = loop or asyncio.get_event_loop()
         #: An authenticator object for storing authentication credentials and \
         #: and providing access tokens
         self.authenticator = PasswordAuthenticator(
@@ -27,10 +37,11 @@ class SalesforceOrg:
         #: Dictionary of available streaming resources by name
         self.resources = {}
         #: Salesforce REST API client
-        self._rest_client = SalesforceApi(self.authenticator)
+        self._rest_client = SalesforceApi(self.authenticator, loop=self._loop)
         # Resource _resource_factory
         self._resource_factory = StreamingResourceFactory(self._rest_client)
 
+    # pylint: enable=too-many-arguments
     async def add_resource(self, resource_type, resource_spec, durable=True):
         """Add a streaming resource to the Salesforce org
 

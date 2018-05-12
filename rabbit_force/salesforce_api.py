@@ -28,13 +28,19 @@ class SalesforceApi:
     #: Timeout to give to HTTP _session to close itself
     _HTTP_SESSION_CLOSE_TIMEOUT = 0.250
 
-    def __init__(self, authenticator):
+    def __init__(self, authenticator, loop=None):
         """
         :param aiosfstream.AuthenticatorBase authenticator: An authenticatior \
         object
+        :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
+                     schedule tasks. If *loop* is ``None`` then
+                     :func:`asyncio.get_event_loop` is used to get the default
+                     event loop.
         """
         #: Authenticator object for providing access tokens
         self.authenticator = authenticator
+        #: Event loop
+        self._loop = loop or asyncio.get_event_loop()
         #: HTTP session object
         self._session = None
         #: The API's base url
@@ -47,7 +53,7 @@ class SalesforceApi:
                  new session.
         """
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
+            self._session = aiohttp.ClientSession(loop=self._loop)
         return self._session
 
     async def _get_base_url(self):

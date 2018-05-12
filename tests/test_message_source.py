@@ -23,7 +23,8 @@ class TestSalesforceOrgMessageSource(TestCase):
             self.name,
             self.org,
             replay=self.replay,
-            replay_fallback=self.replay_fallback
+            replay_fallback=self.replay_fallback,
+            loop=self.loop
         )
 
     def test_init(self):
@@ -32,7 +33,8 @@ class TestSalesforceOrgMessageSource(TestCase):
             self.org.authenticator,
             replay=self.replay,
             replay_fallback=self.replay_fallback,
-            connection_timeout=0
+            connection_timeout=0,
+            loop=self.loop
         )
         self.assertEqual(self.source.client, self.client)
         self.assertEqual(self.source.salesforce_org, self.org)
@@ -102,11 +104,13 @@ class TestMultiMessageSource(TestCase):
     def setUp(self):
         self.sub_source1 = mock.CoroutineMock()
         self.sub_source2 = mock.CoroutineMock()
-        self.source = MultiMessageSource([self.sub_source1, self.sub_source2])
+        self.source = MultiMessageSource([self.sub_source1, self.sub_source2],
+                                         loop=self.loop)
 
     def test_init(self):
         self.assertEqual(self.source.sources, [self.sub_source1,
                                                self.sub_source2])
+        self.assertEqual(self.source._loop, self.loop)
         self.assertTrue(self.source.closed)
 
     def test_closed(self):
@@ -200,12 +204,14 @@ class TestRedisReplayStorage(TestCase):
         self.prefix = None
         self.additional_params = {"foo": "bar"}
         self.replay = RedisReplayStorage(self.address, key_prefix=self.prefix,
+                                         loop=self.loop,
                                          **self.additional_params)
 
     def test_init(self):
         self.assertEqual(self.replay.address, self.address)
         self.assertEqual(self.replay.key_prefix, "")
         self.assertEqual(self.replay.additional_params, self.additional_params)
+        self.assertEqual(self.replay._loop, self.loop)
         self.assertIsNone(self.replay._redis)
 
     def test_get_key(self):
@@ -223,6 +229,7 @@ class TestRedisReplayStorage(TestCase):
         self.assertEqual(result, create_redis_pool.return_value)
         self.assertEqual(self.replay._redis, create_redis_pool.return_value)
         create_redis_pool.assert_called_with(self.replay.address,
+                                             loop=self.loop,
                                              **self.additional_params)
 
     @mock.patch("rabbit_force.message_source.aioredis.create_redis_pool")
