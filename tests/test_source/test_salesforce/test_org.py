@@ -1,12 +1,11 @@
 from asynctest import TestCase, mock
 
-from rabbit_force.salesforce_org import SalesforceOrg
-from rabbit_force.salesforce_api import SalesforceApi
-from rabbit_force.streaming_resources import StreamingResourceFactory
+from rabbit_force.source.salesforce import SalesforceOrg, \
+    SalesforceRestClient, StreamingResourceFactory
 
 
 class TestSalesforceOrg(TestCase):
-    @mock.patch("rabbit_force.salesforce_org.PasswordAuthenticator")
+    @mock.patch(SalesforceOrg.__module__ + ".PasswordAuthenticator")
     def setUp(self, auth_cls):
         self.authenticator = mock.MagicMock()
         self.authenticator.authenticate = mock.CoroutineMock()
@@ -36,7 +35,7 @@ class TestSalesforceOrg(TestCase):
         )
         self.assertIs(self.org.authenticator, self.auth_cls.return_value)
         self.assertEqual(self.org.resources, {})
-        self.assertIsInstance(self.org._rest_client, SalesforceApi)
+        self.assertIsInstance(self.org._rest_client, SalesforceRestClient)
         self.assertEqual(self.org._rest_client._loop, self.loop)
         self.assertIsInstance(self.org._resource_factory,
                               StreamingResourceFactory)

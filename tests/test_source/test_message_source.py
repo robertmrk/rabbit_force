@@ -3,13 +3,13 @@ import asyncio
 from asynctest import TestCase, mock
 from aiosfstream.exceptions import ClientInvalidOperation, AiosfstreamException
 
-from rabbit_force.message_source import SalesforceOrgMessageSource, \
+from rabbit_force.source.message_source import SalesforceOrgMessageSource, \
     MultiMessageSource, RedisReplayStorage
 from rabbit_force.exceptions import InvalidOperation, StreamingError
 
 
 class TestSalesforceOrgMessageSource(TestCase):
-    @mock.patch("rabbit_force.message_source.Client")
+    @mock.patch("rabbit_force.source.message_source.Client")
     def setUp(self, client_cls):
         self.name = "name"
         self.client = mock.MagicMock()
@@ -165,8 +165,8 @@ class TestMultiMessageSource(TestCase):
         self.sub_source1.closed = False
         self.sub_source2.closed = False
 
-        with mock.patch("rabbit_force.message_source.asyncio.ensure_future") \
-                as ensure_future:
+        with mock.patch("rabbit_force.source.message_source."
+                        "asyncio.ensure_future") as ensure_future:
             ensure_future.side_effect = [sleep_task, result_task]
 
             result = await self.source.get_message()
@@ -182,9 +182,9 @@ class TestMultiMessageSource(TestCase):
         self.sub_source1.closed = False
         self.sub_source2.closed = False
 
-        with mock.patch("rabbit_force.message_source."
+        with mock.patch("rabbit_force.source.message_source."
                         "asyncio.ensure_future") as ensure_future, \
-                mock.patch("rabbit_force.message_source."
+                mock.patch("rabbit_force.source.message_source."
                            "asyncio.wait") as wait:
             ensure_future.side_effect = [sleep_task, result_task]
             wait.side_effect = asyncio.CancelledError()
@@ -222,7 +222,8 @@ class TestRedisReplayStorage(TestCase):
 
         self.assertEqual(result, self.replay.key_prefix + ":" + subscription)
 
-    @mock.patch("rabbit_force.message_source.aioredis.create_redis_pool")
+    @mock.patch("rabbit_force.source.message_source."
+                "aioredis.create_redis_pool")
     async def test_get_redis(self, create_redis_pool):
         result = await self.replay._get_redis()
 
@@ -232,7 +233,8 @@ class TestRedisReplayStorage(TestCase):
                                              loop=self.loop,
                                              **self.additional_params)
 
-    @mock.patch("rabbit_force.message_source.aioredis.create_redis_pool")
+    @mock.patch("rabbit_force.source.message_source."
+                "aioredis.create_redis_pool")
     async def test_get_redis_if_exists(self, create_redis_pool):
         self.replay._redis = object()
 
@@ -241,7 +243,7 @@ class TestRedisReplayStorage(TestCase):
         self.assertEqual(result, self.replay._redis)
         create_redis_pool.assert_not_called()
 
-    @mock.patch("rabbit_force.message_source.pickle.loads")
+    @mock.patch("rabbit_force.source.message_source.pickle.loads")
     async def test_get_replay_marker(self, pickle_loads):
         redis = mock.MagicMock()
         key = "key"
@@ -260,7 +262,7 @@ class TestRedisReplayStorage(TestCase):
         redis.get.assert_called_with(key)
         pickle_loads.assert_called_with(serialized_value)
 
-    @mock.patch("rabbit_force.message_source.pickle.loads")
+    @mock.patch("rabbit_force.source.message_source.pickle.loads")
     async def test_get_replay_marker_value_none(self, pickle_loads):
         redis = mock.MagicMock()
         key = "key"
@@ -279,7 +281,7 @@ class TestRedisReplayStorage(TestCase):
         redis.get.assert_called_with(key)
         pickle_loads.assert_not_called()
 
-    @mock.patch("rabbit_force.message_source.pickle.dumps")
+    @mock.patch("rabbit_force.source.message_source.pickle.dumps")
     async def test_set_replay_marker(self, pickle_dumps):
         redis = mock.MagicMock()
         key = "key"

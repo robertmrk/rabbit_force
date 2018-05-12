@@ -4,13 +4,13 @@ import asyncio
 
 import aiohttp
 
-from . import exceptions as exc
+from ... import exceptions as exc
 
 #: Salesforce REST API version
 API_VERSION = 42.0
 
 
-class SalesforceApi:
+class SalesforceRestClient:
     """Salesforce REST API client"""
 
     #: Map for associating HTTP status codes with exception types

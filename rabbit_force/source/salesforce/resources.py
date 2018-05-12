@@ -2,7 +2,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum, unique
 
-from .exceptions import SalesforceNotFoundError, SpecificationError
+from ...exceptions import SalesforceNotFoundError, SpecificationError
 
 
 @unique
@@ -86,7 +86,7 @@ class StreamingResourceFactory:  # pylint: disable=too-few-public-methods
     def __init__(self, rest_client):
         """
         :param rest_client: Salesforce REST API client
-        :type rest_client: SalesforceApi
+        :type rest_client: SalesforceRestClient
         """
         #: Salesforce REST API client
         self.client = rest_client

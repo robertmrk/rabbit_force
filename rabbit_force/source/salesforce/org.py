@@ -3,8 +3,8 @@ import asyncio
 
 from aiosfstream import PasswordAuthenticator
 
-from .streaming_resources import StreamingResourceFactory
-from .salesforce_api import SalesforceApi
+from .resources import StreamingResourceFactory
+from .rest_client import SalesforceRestClient
 
 
 class SalesforceOrg:
@@ -37,7 +37,8 @@ class SalesforceOrg:
         #: Dictionary of available streaming resources by name
         self.resources = {}
         #: Salesforce REST API client
-        self._rest_client = SalesforceApi(self.authenticator, loop=self._loop)
+        self._rest_client = SalesforceRestClient(self.authenticator,
+                                                 loop=self._loop)
         # Resource _resource_factory
         self._resource_factory = StreamingResourceFactory(self._rest_client)
 

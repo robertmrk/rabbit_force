@@ -1,6 +1,6 @@
 from asynctest import TestCase, mock
 
-from rabbit_force.streaming_resources import StreamingResource, \
+from rabbit_force.source.salesforce import StreamingResource, \
     PushTopicResource, StreamingChannelResource, StreamingResourceFactory, \
     StreamingResourceType
 from rabbit_force.exceptions import SalesforceNotFoundError, \
