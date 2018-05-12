@@ -1,0 +1,21 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+aiohttp = ">=3.1,<4.0"
+aiosfstream = ">=0.2.0,<0.3.0"
+pyyaml = "*"
+aioredis = "*"
+aioamqp = "*"
+
+[dev-packages]
+sphinx = "*"
+asynctest = "*"
+coverage = "*"
+"flake8" = "*"
+pylint = "*"
+
+[requires]
+python_version = "3.6"
