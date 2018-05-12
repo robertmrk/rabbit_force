@@ -53,7 +53,8 @@ class SalesforceApi:
     async def _get_base_url(self):
         """Returns the API's base url"""
         if self._base_url is None:
-            await self.authenticator.authenticate()
+            if self.authenticator.instance_url is None:
+                await self.authenticator.authenticate()
             self._base_url = f"{self.authenticator.instance_url}/services" \
                              f"/data/v{API_VERSION}/"
         return self._base_url

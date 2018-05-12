@@ -55,6 +55,16 @@ class TestSalesforceApi(TestCase):
         self.assertEqual(result,
                          f"{self.auth.instance_url}/services"
                          f"/data/v{API_VERSION}/")
+        self.auth.authenticate.assert_not_called()
+
+    async def test_get_base_url_creates_base_url_not_authenticated(self):
+        self.auth.instance_url = None
+
+        result = await self.api._get_base_url()
+
+        self.assertEqual(result,
+                         f"{self.auth.instance_url}/services"
+                         f"/data/v{API_VERSION}/")
         self.auth.authenticate.assert_called()
 
     async def test_raise_error_from_error_map(self):

@@ -8,6 +8,7 @@ aiohttp = ">=3.1,<4.0"
 aiosfstream = ">=0.2.0,<0.3.0"
 pyyaml = "*"
 aioredis = "*"
+aioamqp = "*"
 
 [dev-packages]
 sphinx = "*"
