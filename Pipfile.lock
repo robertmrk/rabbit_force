@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "ffc5243644aef0d5ae38a5d6818efde49ba8e804d29ebf5df34d00d07407e7b8"
+            "sha256": "1eef91014a1b2a48540ff4b08743fa62e32a081085b3ad95dfee2705eca88b26"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -107,6 +107,23 @@
                 "sha256:1293f030bc608e9aa9cdee72aa93c1521bbb9c7698068c61c9ada6772162b979"
             ],
             "version": "==1.0.1"
+        },
+        "marshmallow": {
+            "hashes": [
+                "sha256:0466c523c00bd6f1dcb6523cec016e20ffa9738d5abfaf618cd6b1142b9dc766",
+                "sha256:4c9978eddbc521674505ed38109cd8b92c8baa6f0a386a52356666c74e586d1e"
+            ],
+            "index": "pypi",
+            "version": "==2.15.2"
+        },
+        "marshmallow-polyfield": {
+            "hashes": [
+                "sha256:72980cb9a43a7c750580b4b08e9d01a8cbd583e1f59360f1924a1ed60f065a4c",
+                "sha256:8d85301eb0f46ec184bac534a78472966f9cc3cbfab7fae58ddf8c0a954081cd",
+                "sha256:cc57436b6fb65f33912c8f110d710933aa5a3082409cd5f9f0d8df6ec24d4280"
+            ],
+            "index": "pypi",
+            "version": "==3.2"
         },
         "multidict": {
             "hashes": [
