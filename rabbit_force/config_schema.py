@@ -38,9 +38,9 @@ class PushTopicSchema(StrictSchema):
     # PushTopic fields are validated according to
     # https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/\
     # api_streaming/pushtopic.htm
-    Name = fields.String(required=True, validate=Length(min=1, max=25))
-    ApiVersion = fields.Float(required=True,
-                              validate=Range(min=20.0, max=42.0))
+    Id = fields.String(validate=Length(min=1))
+    Name = fields.String(validate=Length(min=1, max=25))
+    ApiVersion = fields.Float(validate=Range(min=20.0, max=42.0))
     IsActive = fields.Boolean(default=True)
     NotifyForFields = fields.String(validate=OneOf(["All",
                                                     "Referenced",
@@ -55,7 +55,34 @@ class PushTopicSchema(StrictSchema):
                                                         "Create",
                                                         "Extended",
                                                         "Update"]))
-    Query = fields.String(required=True, validate=Length(min=1, max=1300))
+    Query = fields.String(validate=Length(min=1, max=1300))
+
+    @validates_schema
+    def check_required_fileds(self, data):  # pylint: disable=no-self-use
+        """Check for required fields
+
+        :raise marshmallow.ValidationError: If no fields are specified or if \
+        only a single non identifier field is specified or multiple fields \
+        are specified but they're not enough for a resource definition
+        """
+        if len(data) == 1:
+            unique_id_fields = {"Id", "Name"}
+            if not data.keys() & unique_id_fields:
+                raise ValidationError("If only a single field is specified "
+                                      "it should be a unique identifier like "
+                                      "'Id' or 'Name'.")
+        elif len(data) > 1:
+            required_fields = {"Name", "ApiVersion", "Query"}
+            if (data.keys() & required_fields) != required_fields:
+                raise ValidationError("If multiple fields are specified it "
+                                      "it should be a full resource "
+                                      "definition where at least 'Name', "
+                                      "'ApiVersion' and 'Query' are required.")
+        else:
+            raise ValidationError("Either a single fields should be specified "
+                                  "which uniquely identifies the resource or "
+                                  "multiple fields which can be used to "
+                                  "construct the resource.")
 
     @validates_schema
     def check_api_version(self, data):  # pylint: disable=no-self-use
@@ -94,8 +121,29 @@ class StreamingChannelSchema(StrictSchema):
     # StreamingChannel fields are validated according to
     # https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/\
     # api_streaming/streamingChannel.htm
-    Name = fields.String(required=True, validate=Length(min=1, max=80))
+    Id = fields.String(validate=Length(min=1))
+    Name = fields.String(validate=Length(min=1, max=80))
     Description = fields.String(default=None, validate=Length(max=255))
+
+    @validates_schema
+    def check_required_fileds(self, data):  # pylint: disable=no-self-use
+        """Check for required fields
+
+        :raise marshmallow.ValidationError: If no fields are specified or if \
+        only a single non identifier field is specified or multiple fields \
+        are specified but they're not enough for a resource definition
+        """
+        if len(data) == 1:
+            unique_id_fields = {"Id", "Name"}
+            if not data.keys() & unique_id_fields:
+                raise ValidationError("If only a single field is specified "
+                                      "it should be a unique identifier like "
+                                      "'Id' or 'Name'.")
+        elif not data:
+            raise ValidationError("Either a single fields should be specified "
+                                  "which uniquely identifies the resource or "
+                                  "multiple fields which can be used to "
+                                  "construct the resource.")
 
 # pylint: disable=unused-argument
 

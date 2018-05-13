@@ -123,6 +123,108 @@ class TestPushTopicSchema(TestCase):
                                     self.invalid_operation_for_erlier_error):
             PushTopicSchema().load(data)
 
+    def test_check_required_fields_no_fields(self):
+        data = {}
+
+        with self.assertRaisesRegex(ValidationError,
+                                    "'Either a single fields should be "
+                                    "specified which uniquely identifies the "
+                                    "resource or multiple fields which can be "
+                                    "used to construct the resource.'"):
+            PushTopicSchema().load(data)
+
+    def test_check_required_fields_single_non_id_field(self):
+        data = {"Query": "query string"}
+
+        with self.assertRaisesRegex(ValidationError,
+                                    "If only a single field is specified "
+                                    "it should be a unique identifier like "
+                                    "'Id' or 'Name'."):
+            PushTopicSchema().load(data)
+
+    def test_check_required_fields_single_id_field(self):
+        data = {"Id": "id"}
+
+        result = PushTopicSchema().load(data).data
+
+        self.assertEqual(result, data)
+
+    def test_check_required_fields_single_name_field(self):
+        data = {"Name": "name"}
+
+        result = PushTopicSchema().load(data).data
+
+        self.assertEqual(result, data)
+
+    def test_check_required_fields_multiple_definition_fields(self):
+        data = {
+            "Name": "name",
+            "ApiVersion": 28,
+            "Query": "query string"
+        }
+
+        result = PushTopicSchema().load(data).data
+
+        self.assertEqual(result, data)
+
+    def test_check_required_fields_multiple_definition_fields_missing(self):
+        data = {
+            "Name": "name",
+            "Query": "query string"
+        }
+
+        with self.assertRaisesRegex(ValidationError,
+                                    "If multiple fields are specified it "
+                                    "it should be a full resource "
+                                    "definition where at least 'Name', "
+                                    "'ApiVersion' and 'Query' are required."):
+            PushTopicSchema().load(data)
+
+
+class TestStreamingChannelSchema(TestCase):
+    def test_check_required_fields_no_fields(self):
+        data = {}
+
+        with self.assertRaisesRegex(ValidationError,
+                                    "'Either a single fields should be "
+                                    "specified which uniquely identifies the "
+                                    "resource or multiple fields which can be "
+                                    "used to construct the resource.'"):
+            StreamingChannelSchema().load(data)
+
+    def test_check_required_fields_single_non_id_field(self):
+        data = {"Description": "desc"}
+
+        with self.assertRaisesRegex(ValidationError,
+                                    "If only a single field is specified "
+                                    "it should be a unique identifier like "
+                                    "'Id' or 'Name'."):
+            StreamingChannelSchema().load(data)
+
+    def test_check_required_fields_single_id_field(self):
+        data = {"Id": "id"}
+
+        result = StreamingChannelSchema().load(data).data
+
+        self.assertEqual(result, data)
+
+    def test_check_required_fields_single_name_field(self):
+        data = {"Name": "name"}
+
+        result = StreamingChannelSchema().load(data).data
+
+        self.assertEqual(result, data)
+
+    def test_check_required_fields_multiple_definition_fields(self):
+        data = {
+            "Name": "name",
+            "Description": "desc"
+        }
+
+        result = StreamingChannelSchema().load(data).data
+
+        self.assertEqual(result, data)
+
 
 class TestStreamingResourceSchema(TestCase):
     def test_load_push_topic(self):
