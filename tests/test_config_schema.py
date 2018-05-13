@@ -139,7 +139,7 @@ class TestStreamingResourceSchema(TestCase):
         result = StreamingResourceSchema().load(data).data
 
         expected_data = {
-            "type_name": data["type"],
+            "resource_type": data["type"],
             "resource_spec": data["spec"]
         }
         self.assertEqual(result, expected_data)
@@ -156,7 +156,7 @@ class TestStreamingResourceSchema(TestCase):
         result = StreamingResourceSchema().load(data).data
 
         expected_data = {
-            "type_name": data["type"],
+            "resource_type": data["type"],
             "resource_spec": data["spec"]
         }
         self.assertEqual(result, expected_data)

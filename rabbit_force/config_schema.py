@@ -123,12 +123,13 @@ def resource_class_selector(data, parent_data):
 class StreamingResourceSchema(StrictSchema):
     """Configuration schema for streaming resources"""
 
-    type = fields.String(required=True, attribute="type_name",
+    type = fields.String(required=True, attribute="resource_type",
                          validate=OneOf([_.value for _ in
                                          StreamingResourceType]))
     spec = PolyField(deserialization_schema_selector=resource_class_selector,
                      serialization_schema_selector=resource_class_selector,
                      required=True, attribute="resource_spec")
+    durable = fields.Boolean()
 
 
 class SalesforceOrgSchema(StrictSchema):
