@@ -129,3 +129,15 @@ class StreamingResourceSchema(StrictSchema):
     spec = PolyField(deserialization_schema_selector=resource_class_selector,
                      serialization_schema_selector=resource_class_selector,
                      required=True, attribute="resource_spec")
+
+
+class SalesforceOrgSchema(StrictSchema):
+    """Configuration schema for a Salesforce organization"""
+    consumer_key = fields.String(required=True)
+    consumer_secret = fields.String(required=True)
+    username = fields.String(required=True)
+    password = fields.String(required=True)
+    resources = fields.List(fields.Nested(StreamingResourceSchema()),
+                            required=True,
+                            validate=Length(min=1),
+                            attribute="resource_specs")
