@@ -197,3 +197,49 @@ class MessageSourceSchema(StrictSchema):
                        required=True,
                        validate=Length(min=1))
     replay = fields.Nested(ReplaySchema())
+
+
+class AmqpExchangeSchema(StrictSchema):
+    """Configuration schema for declaring AMQP exchanges"""
+    exchange_name = fields.String(required=True, validate=Length(min=1))
+    type_name = fields.String(required=True, validate=OneOf(["fanout",
+                                                             "direct",
+                                                             "topic",
+                                                             "headers"]))
+    passive = fields.Boolean(default=False)
+    durable = fields.Boolean(default=False)
+    auto_delete = fields.Boolean(default=False)
+    no_wait = fields.Boolean(default=False)
+    arguments = fields.Dict(allow_none=True)
+
+
+class AmqpBrokerSchema(StrictSchema):
+    """Configuration schema for AMQP connection parameters"""
+    host = fields.String(required=True, validate=Length(min=1))
+    port = fields.Int(default=None, allow_none=True,
+                      validate=Range(min=1, max=(2 ** 16) - 1))
+    login = fields.String(default="guest")
+    password = fields.String(default="guest")
+    virtualhost = fields.String(default="/")
+    ssl = fields.Boolean(default=False)
+    verify_ssl = fields.Boolean(default=True)
+    login_method = fields.String(default="AMQPLAIN")
+    insist = fields.Boolean(default=False)
+    exchanges = fields.List(fields.Nested(AmqpExchangeSchema()),
+                            required=True,
+                            validate=Length(min=1))
+
+
+class MessageSinkSchema(StrictSchema):
+    """Configuration schema for a message sink"""
+    brokers = fields.Dict(keys=fields.String(),
+                          values=fields.Nested(AmqpBrokerSchema()),
+                          required=True,
+                          validate=Length(min=1))
+
+
+class ApplicationConfigSchema(StrictSchema):
+    """Congiguration schema for setting up the complete rabbit_force
+    application"""
+    source = fields.Nested(MessageSourceSchema(), required=True)
+    sink = fields.Nested(MessageSinkSchema(), required=True)
