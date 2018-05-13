@@ -182,3 +182,18 @@ class SalesforceOrgSchema(StrictSchema):
                             required=True,
                             validate=Length(min=1),
                             attribute="resource_specs")
+
+
+class ReplaySchema(StrictSchema):
+    """Configuration schema for a Redis replay marker storage"""
+    address = fields.Url(schemes=("redis",), required=True)
+    key_prefix = fields.String()
+
+
+class MessageSourceSchema(StrictSchema):
+    """Configuration schema for a message source"""
+    orgs = fields.Dict(keys=fields.String(),
+                       values=fields.Nested(SalesforceOrgSchema()),
+                       required=True,
+                       validate=Length(min=1))
+    replay = fields.Nested(ReplaySchema())
