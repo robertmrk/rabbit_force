@@ -1,20 +1,13 @@
 """Configuration schemas"""
-from marshmallow import Schema, fields, validates_schema, ValidationError
+from marshmallow import Schema, fields, validates_schema, ValidationError, \
+    post_load
 from marshmallow.validate import Length, Range, OneOf
-from marshmallow_polyfield import PolyField
 
 from .source.salesforce import StreamingResourceType
 
 
 class StrictSchema(Schema):
-    """Common schema base class with strict validation
-
-    Raises exceptions on validation errors instead of failing silently and
-    rejects unknown fields
-    """
-    def __init__(self):
-        # raise exceptions for validation errors
-        super().__init__(strict=True)
+    """Common schema base class which rejects unknown fields"""
 
     # pylint: disable=unused-argument
     @validates_schema(pass_original=True)
@@ -145,28 +138,6 @@ class StreamingChannelSchema(StrictSchema):
                                   "multiple fields which can be used to "
                                   "construct the resource.")
 
-# pylint: disable=unused-argument
-
-
-def resource_class_selector(data, parent_data):
-    """Return the appropriate type of schema object for the given resource
-    data
-
-    :param dict data: The configuration values for the resource
-    :param dict parent_data: The complete configuration for the resource \
-    which contains the resource's type
-    :return: A resource schema object
-    :rtype: StrictSchema
-    """
-    schema_map = {
-        StreamingResourceType.PUSH_TOPIC: PushTopicSchema,
-        StreamingResourceType.STREAMING_CHANNEL: StreamingChannelSchema
-    }
-    type_name = parent_data["type"]
-    return schema_map[type_name]()
-
-# pylint: enable=unused-argument
-
 
 class StreamingResourceSchema(StrictSchema):
     """Configuration schema for streaming resources"""
@@ -174,10 +145,31 @@ class StreamingResourceSchema(StrictSchema):
     type = fields.String(required=True, attribute="resource_type",
                          validate=OneOf([_.value for _ in
                                          StreamingResourceType]))
-    spec = PolyField(deserialization_schema_selector=resource_class_selector,
-                     serialization_schema_selector=resource_class_selector,
-                     required=True, attribute="resource_spec")
+    spec = fields.Dict(required=True, attribute="resource_spec")
     durable = fields.Boolean()
+
+    @post_load
+    def load_spec(self, data):
+        """Load the spec field with the appropriate schema based on the
+        type field"""
+        # resource type scpecific schema classes
+        schema_map = {
+            StreamingResourceType.PUSH_TOPIC: PushTopicSchema,
+            StreamingResourceType.STREAMING_CHANNEL: StreamingChannelSchema
+        }
+
+        # get the resource type value
+        type_name = data[self.fields["type"].attribute]
+
+        # get the schema class for the resource type
+        schema_cls = schema_map[type_name]
+
+        # load and update the value of spec field
+        spec = data[self.fields["spec"].attribute]
+        data[self.fields["spec"].attribute] = schema_cls().load(spec)
+
+        # return the updated data
+        return data
 
 
 class SalesforceOrgSchema(StrictSchema):

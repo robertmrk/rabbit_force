@@ -3,8 +3,7 @@ from unittest import TestCase
 from marshmallow import ValidationError, fields
 
 from rabbit_force.config_schema import PushTopicSchema, \
-    StreamingResourceSchema, StrictSchema, resource_class_selector, \
-    StreamingChannelSchema
+    StreamingResourceSchema, StrictSchema, StreamingChannelSchema
 
 
 class TestStrictSchema(TestCase):
@@ -13,11 +12,6 @@ class TestStrictSchema(TestCase):
             foo = fields.String(required=True)
 
         self.schema_cls = TestSchema
-
-    def test_init(self):
-        schema = self.schema_cls()
-
-        self.assertTrue(schema.strict)
 
     def test_rejects_unkown_fields(self):
         data = {
@@ -145,14 +139,14 @@ class TestPushTopicSchema(TestCase):
     def test_check_required_fields_single_id_field(self):
         data = {"Id": "id"}
 
-        result = PushTopicSchema().load(data).data
+        result = PushTopicSchema().load(data)
 
         self.assertEqual(result, data)
 
     def test_check_required_fields_single_name_field(self):
         data = {"Name": "name"}
 
-        result = PushTopicSchema().load(data).data
+        result = PushTopicSchema().load(data)
 
         self.assertEqual(result, data)
 
@@ -163,7 +157,7 @@ class TestPushTopicSchema(TestCase):
             "Query": "query string"
         }
 
-        result = PushTopicSchema().load(data).data
+        result = PushTopicSchema().load(data)
 
         self.assertEqual(result, data)
 
@@ -204,14 +198,14 @@ class TestStreamingChannelSchema(TestCase):
     def test_check_required_fields_single_id_field(self):
         data = {"Id": "id"}
 
-        result = StreamingChannelSchema().load(data).data
+        result = StreamingChannelSchema().load(data)
 
         self.assertEqual(result, data)
 
     def test_check_required_fields_single_name_field(self):
         data = {"Name": "name"}
 
-        result = StreamingChannelSchema().load(data).data
+        result = StreamingChannelSchema().load(data)
 
         self.assertEqual(result, data)
 
@@ -221,7 +215,7 @@ class TestStreamingChannelSchema(TestCase):
             "Description": "desc"
         }
 
-        result = StreamingChannelSchema().load(data).data
+        result = StreamingChannelSchema().load(data)
 
         self.assertEqual(result, data)
 
@@ -238,7 +232,7 @@ class TestStreamingResourceSchema(TestCase):
             }
         }
 
-        result = StreamingResourceSchema().load(data).data
+        result = StreamingResourceSchema().load(data)
 
         expected_data = {
             "resource_type": data["type"],
@@ -255,22 +249,10 @@ class TestStreamingResourceSchema(TestCase):
             }
         }
 
-        result = StreamingResourceSchema().load(data).data
+        result = StreamingResourceSchema().load(data)
 
         expected_data = {
             "resource_type": data["type"],
             "resource_spec": data["spec"]
         }
         self.assertEqual(result, expected_data)
-
-
-class TestResourceClassSelector(TestCase):
-    def test_selects_push_topic(self):
-        result = resource_class_selector({}, {"type": "PushTopic"})
-
-        self.assertIsInstance(result, PushTopicSchema)
-
-    def test_selects_streaming_channel(self):
-        result = resource_class_selector({}, {"type": "StreamingChannel"})
-
-        self.assertIsInstance(result, StreamingChannelSchema)

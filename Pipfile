@@ -9,8 +9,7 @@ aiosfstream = ">=0.2.0,<0.3.0"
 pyyaml = "*"
 aioredis = "*"
 aioamqp = "*"
-marshmallow = "*"
-marshmallow-polyfield = "*"
+marshmallow = ">=3.0.0b5,<3.1.0"
 
 [dev-packages]
 sphinx = "*"
