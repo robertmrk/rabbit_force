@@ -92,3 +92,44 @@ async def create_message_source(*, org_specs, replay_spec=None,
     # if multiple org_specs are specified, group their message sources into a
     # multi message source object
     return MultiMessageSource(message_sources, loop=loop)
+
+
+async def create_broker(*, host, exchange_specs, port=None, login='guest',
+                        password='guest', virtualhost='/', ssl=False,
+                        login_method='AMQPLAIN', insist=False, verify_ssl=True,
+                        loop=None):
+    """Create and initialize a message broker with the given parameters
+
+    :param str host: the host to connect to
+    :param list[dict] exchange_specs: List of exchange specifications that \
+    can be passed to :py:meth:`aioamqp.channel.Channel.exchange_declare`
+    :param port: broker port
+    :type port: int or None
+    :param str login: login
+    :param str password: password
+    :param str virtualhost: AMQP virtualhost to use for this connection
+    :param bool ssl: Create an SSL connection instead of a plain unencrypted \
+    one
+    :param str login_method: AMQP auth method
+    :param bool insist: Insist on connecting to a server
+    :param bool verify_ssl: Verify server's SSL certificate (True by default)
+    :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
+                 schedule tasks. If *loop* is ``None`` then
+                 :func:`asyncio.get_event_loop` is used to get the default
+                 event loop.
+    :return: a tuple (transport, protocol) of an AmqpProtocol instance
+    :rtype: tuple[asyncio.BaseTransport, aioamqp.protocol.AmqpProtocol]
+    """
+    # connect to the broker and create the transport and protocol objects
+    transport, protocol = await aioamqp.connect(host, port, login, password,
+                                                virtualhost, ssl, login_method,
+                                                insist, verify_ssl=verify_ssl,
+                                                loop=loop)
+
+    # create a channel and declare the exchanges
+    channel = await protocol.channel()
+    for spec in exchange_specs:
+        await channel.exchange_declare(**spec)
+
+    # return the connections transport and protocol
+    return transport, protocol

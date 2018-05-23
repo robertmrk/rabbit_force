@@ -1,7 +1,8 @@
 from asynctest import TestCase, mock
 from aiosfstream import ReplayOption
 
-from rabbit_force.factories import create_salesforce_org, create_message_source
+from rabbit_force.factories import create_salesforce_org, \
+    create_message_source, create_broker
 
 
 class TestCreateSalesforceOrg(TestCase):
@@ -162,3 +163,47 @@ class TestCreateMessageSource(TestCase):
         ])
         multi_source_cls.assert_called_with([org_source1, org_source2],
                                             loop=self.loop)
+
+
+class TestCreateBroker(TestCase):
+    @mock.patch("rabbit_force.factories.aioamqp")
+    async def test_create(self, aioamqp_mod):
+        host = "host"
+        exchange_specs = [{"key": "value"}]
+        port = 1234
+        login = "login"
+        password = "password"
+        virtualhost = "virt_host"
+        ssl = True
+        login_method = "plain"
+        insist = True
+        verify_ssl = True
+        transport = object()
+        channel = mock.MagicMock()
+        channel.exchange_declare = mock.CoroutineMock()
+        protocol = mock.MagicMock()
+        protocol.channel = mock.CoroutineMock(return_value=channel)
+        aioamqp_mod.connect = mock.CoroutineMock(
+            return_value=(transport, protocol)
+        )
+
+        result = await create_broker(
+            host=host,
+            exchange_specs=exchange_specs,
+            port=port,
+            login=login,
+            password=password,
+            virtualhost=virtualhost,
+            ssl=ssl,
+            login_method=login_method,
+            insist=insist,
+            verify_ssl=verify_ssl,
+            loop=self.loop
+        )
+
+        self.assertEqual(result, (transport, protocol))
+        aioamqp_mod.connect.assert_called_with(
+            host, port, login, password, virtualhost, ssl, login_method,
+            insist, verify_ssl=verify_ssl, loop=self.loop
+        )
+        channel.exchange_declare.assert_called_with(**exchange_specs[0])
