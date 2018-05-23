@@ -1,6 +1,7 @@
 from asynctest import TestCase, mock
+from aiosfstream import ReplayOption
 
-from rabbit_force.factories import create_salesforce_org
+from rabbit_force.factories import create_salesforce_org, create_message_source
 
 
 class TestCreateSalesforceOrg(TestCase):
@@ -34,3 +35,130 @@ class TestCreateSalesforceOrg(TestCase):
             loop=self.loop
         )
         org_mock.add_resource.assert_called_with(**resource_spec)
+
+
+class TestCreateMessageSource(TestCase):
+    @mock.patch("rabbit_force.factories.RedisReplayStorage")
+    @mock.patch("rabbit_force.factories.MultiMessageSource")
+    @mock.patch("rabbit_force.factories.SalesforceOrgMessageSource")
+    async def test_create(self, org_source_cls, multi_source_cls, replay_cls):
+        org_specs = {
+            "org_name1": {
+                "key1": "value1"
+            },
+            "org_name2": {
+                "key2": "value2"
+            }
+        }
+        replay_spec = {"key": "value"}
+        org1 = object()
+        org2 = object()
+        org_factory = mock.CoroutineMock(side_effect=[org1, org2])
+        replay_marker_storage = object()
+        replay_cls.return_value = replay_marker_storage
+        org_source1 = object()
+        org_source2 = object()
+        org_source_cls.side_effect = [org_source1, org_source2]
+
+        result = await create_message_source(
+            org_specs=org_specs,
+            replay_spec=replay_spec,
+            org_factory=org_factory,
+            loop=self.loop
+        )
+
+        self.assertIs(result, multi_source_cls.return_value)
+        replay_cls.assert_called_with(**replay_spec, loop=self.loop)
+        org_factory.assert_has_calls([
+            mock.call(**org_specs["org_name1"]),
+            mock.call(**org_specs["org_name2"])
+        ])
+        org_source_cls.assert_has_calls([
+            mock.call("org_name1", org1, replay_marker_storage,
+                      ReplayOption.ALL_EVENTS, loop=self.loop),
+            mock.call("org_name2", org2, replay_marker_storage,
+                      ReplayOption.ALL_EVENTS, loop=self.loop)
+        ])
+        multi_source_cls.assert_called_with([org_source1, org_source2],
+                                            loop=self.loop)
+
+    @mock.patch("rabbit_force.factories.RedisReplayStorage")
+    @mock.patch("rabbit_force.factories.MultiMessageSource")
+    @mock.patch("rabbit_force.factories.SalesforceOrgMessageSource")
+    async def test_create_single_source(self, org_source_cls, multi_source_cls,
+                                        replay_cls):
+        org_specs = {
+            "org_name1": {
+                "key1": "value1"
+            }
+        }
+        replay_spec = {"key": "value"}
+        org1 = object()
+        org_factory = mock.CoroutineMock(side_effect=[org1])
+        replay_marker_storage = object()
+        replay_cls.return_value = replay_marker_storage
+        org_source1 = object()
+        org_source_cls.side_effect = [org_source1]
+
+        result = await create_message_source(
+            org_specs=org_specs,
+            replay_spec=replay_spec,
+            org_factory=org_factory,
+            loop=self.loop
+        )
+
+        self.assertIs(result, org_source1)
+        replay_cls.assert_called_with(**replay_spec, loop=self.loop)
+        org_factory.assert_has_calls([
+            mock.call(**org_specs["org_name1"])
+        ])
+        org_source_cls.assert_has_calls([
+            mock.call("org_name1", org1, replay_marker_storage,
+                      ReplayOption.ALL_EVENTS, loop=self.loop)
+        ])
+        multi_source_cls.assert_not_called()
+
+    @mock.patch("rabbit_force.factories.RedisReplayStorage")
+    @mock.patch("rabbit_force.factories.MultiMessageSource")
+    @mock.patch("rabbit_force.factories.SalesforceOrgMessageSource")
+    async def test_create_without_replay_spec(self, org_source_cls,
+                                              multi_source_cls, replay_cls):
+        org_specs = {
+            "org_name1": {
+                "key1": "value1"
+            },
+            "org_name2": {
+                "key2": "value2"
+            }
+        }
+        replay_spec = None
+        org1 = object()
+        org2 = object()
+        org_factory = mock.CoroutineMock(side_effect=[org1, org2])
+        replay_marker_storage = None
+        replay_cls.return_value = replay_marker_storage
+        org_source1 = object()
+        org_source2 = object()
+        org_source_cls.side_effect = [org_source1, org_source2]
+
+        result = await create_message_source(
+            org_specs=org_specs,
+            replay_spec=replay_spec,
+            org_factory=org_factory,
+            loop=self.loop
+        )
+
+        self.assertIs(result, multi_source_cls.return_value)
+        replay_cls.assert_not_called()
+        org_factory.assert_has_calls([
+            mock.call(**org_specs["org_name1"]),
+            mock.call(**org_specs["org_name2"])
+        ])
+        org_source_cls.assert_has_calls([
+            mock.call("org_name1", org1, replay_marker_storage,
+                      None, loop=self.loop),
+            mock.call("org_name2", org2, replay_marker_storage,
+                      None, loop=self.loop)
+        ])
+        multi_source_cls.assert_called_with([org_source1, org_source2],
+                                            loop=self.loop)
