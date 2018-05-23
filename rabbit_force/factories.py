@@ -133,3 +133,34 @@ async def create_broker(*, host, exchange_specs, port=None, login='guest',
 
     # return the connections transport and protocol
     return transport, protocol
+
+
+async def create_message_sink(*, broker_specs,
+                              broker_factory=create_broker,
+                              broker_sink_factory=AmqpMessageSink,
+                              loop=None):
+    """Create a message sink that wraps the brokers defined by
+    *broker_specs*
+
+    :param dict broker_specs: Dictionary of name - broker specification \
+    pairs that can be passed to *broker_factory* to create an object
+    :param callable broker_factory: A callable capable of creating a message \
+    broker from the items of *broker_specs*
+    :param callable broker_sink_factory: A callable capable of creating \
+    :py:obj:`MessageSink` objects which will wrap broker instances
+    :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
+                 schedule tasks. If *loop* is ``None`` then
+                 :func:`asyncio.get_event_loop` is used to get the default
+                 event loop.
+    :rtype: ~sink.message_sink.MessageSink
+    """
+    # create the specified broker objects identified by their names
+    brokers = {name: await broker_factory(**params, loop=loop)
+               for name, params in broker_specs.items()}
+
+    # create message sink for every broker object
+    message_sinks = {name: broker_sink_factory(*broker)
+                     for name, broker in brokers.items()}
+
+    # group the message sink objects into a multi message sink object
+    return MultiMessageSink(message_sinks, loop=loop)

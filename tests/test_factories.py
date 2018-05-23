@@ -2,7 +2,7 @@ from asynctest import TestCase, mock
 from aiosfstream import ReplayOption
 
 from rabbit_force.factories import create_salesforce_org, \
-    create_message_source, create_broker
+    create_message_source, create_broker, create_message_sink
 
 
 class TestCreateSalesforceOrg(TestCase):
@@ -207,3 +207,32 @@ class TestCreateBroker(TestCase):
             insist, verify_ssl=verify_ssl, loop=self.loop
         )
         channel.exchange_declare.assert_called_with(**exchange_specs[0])
+
+
+class TestCreateMessageSink(TestCase):
+    @mock.patch("rabbit_force.factories.MultiMessageSink")
+    async def test_create(self, multi_sink_cls):
+        broker_specs = {
+            "broker1": {
+                "key": "value"
+            }
+        }
+        broker = (object(), object())
+        broker_factory = mock.CoroutineMock(return_value=broker)
+        message_sink = object()
+        broker_sink_factory = mock.MagicMock(return_value=message_sink)
+
+        result = await create_message_sink(
+            broker_specs=broker_specs,
+            broker_factory=broker_factory,
+            broker_sink_factory=broker_sink_factory,
+            loop=self.loop
+        )
+
+        self.assertIs(result, multi_sink_cls.return_value)
+        broker_factory.assert_called_with(**broker_specs["broker1"],
+                                          loop=self.loop)
+        broker_sink_factory.assert_called_with(*broker)
+        multi_sink_cls.assert_called_with(
+            {"broker1": message_sink}, loop=self.loop
+        )
