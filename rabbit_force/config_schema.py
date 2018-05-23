@@ -181,7 +181,7 @@ class SalesforceOrgSchema(StrictSchema):
     resources = fields.List(fields.Nested(StreamingResourceSchema()),
                             required=True,
                             validate=Length(min=1),
-                            attribute="resource_specs")
+                            attribute="streaming_resource_specs")
 
 
 class ReplaySchema(StrictSchema):
@@ -195,8 +195,9 @@ class MessageSourceSchema(StrictSchema):
     orgs = fields.Dict(keys=fields.String(),
                        values=fields.Nested(SalesforceOrgSchema()),
                        required=True,
-                       validate=Length(min=1))
-    replay = fields.Nested(ReplaySchema())
+                       validate=Length(min=1),
+                       attribute="org_specs")
+    replay = fields.Nested(ReplaySchema(), attribute="replay_spec")
 
 
 class AmqpExchangeSchema(StrictSchema):
@@ -227,7 +228,8 @@ class AmqpBrokerSchema(StrictSchema):
     insist = fields.Boolean(default=False)
     exchanges = fields.List(fields.Nested(AmqpExchangeSchema()),
                             required=True,
-                            validate=Length(min=1))
+                            validate=Length(min=1),
+                            attribute="exchange_specs")
 
 
 class MessageSinkSchema(StrictSchema):
@@ -235,7 +237,8 @@ class MessageSinkSchema(StrictSchema):
     brokers = fields.Dict(keys=fields.String(),
                           values=fields.Nested(AmqpBrokerSchema()),
                           required=True,
-                          validate=Length(min=1))
+                          validate=Length(min=1),
+                          attribute="broker_specs")
 
 
 class ApplicationConfigSchema(StrictSchema):
