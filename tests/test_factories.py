@@ -2,7 +2,8 @@ from asynctest import TestCase, mock
 from aiosfstream import ReplayOption
 
 from rabbit_force.factories import create_salesforce_org, \
-    create_message_source, create_broker, create_message_sink
+    create_message_source, create_broker, create_message_sink, create_rule, \
+    create_router
 
 
 class TestCreateSalesforceOrg(TestCase):
@@ -236,3 +237,68 @@ class TestCreateMessageSink(TestCase):
         multi_sink_cls.assert_called_with(
             {"broker1": message_sink}, loop=self.loop
         )
+
+
+class TestCreateRule(TestCase):
+    @mock.patch("rabbit_force.factories.RoutingRule")
+    def test_create(self, rule_cls):
+        condition_factory = mock.MagicMock()
+        route_factory = mock.MagicMock()
+        condition_spec = object()
+        route_spec = {"key": "value"}
+
+        result = create_rule(
+            condition_spec=condition_spec,
+            route_spec=route_spec,
+            condition_factory=condition_factory,
+            route_factory=route_factory
+        )
+
+        self.assertIs(result, rule_cls.return_value)
+        condition_factory.assert_called_with(condition_spec)
+        route_factory.assert_called_with(**route_spec)
+        rule_cls.assert_called_with(condition_factory.return_value,
+                                    route_factory.return_value)
+
+
+class TestCreateRouter(TestCase):
+    @mock.patch("rabbit_force.factories.MessageRouter")
+    def test_create(self, router_cls):
+        route_factory = mock.MagicMock()
+        rule_factory = mock.MagicMock()
+        default_route_spec = {"key": "value"}
+        rule = {"rule_key": "rule_value"}
+        rule_specs = [rule]
+
+        result = create_router(
+            default_route_spec=default_route_spec,
+            rule_specs=rule_specs,
+            route_factory=route_factory,
+            rule_factory=rule_factory
+        )
+
+        self.assertIs(result, router_cls.return_value)
+        route_factory.assert_called_with(**default_route_spec)
+        rule_factory.assert_called_with(**rule)
+        router_cls.assert_called_with(route_factory.return_value,
+                                      [rule_factory.return_value])
+
+    @mock.patch("rabbit_force.factories.MessageRouter")
+    def test_create_without_default_route(self, router_cls):
+        route_factory = mock.MagicMock()
+        rule_factory = mock.MagicMock()
+        default_route_spec = None
+        rule = {"rule_key": "rule_value"}
+        rule_specs = [rule]
+
+        result = create_router(
+            default_route_spec=default_route_spec,
+            rule_specs=rule_specs,
+            route_factory=route_factory,
+            rule_factory=rule_factory
+        )
+
+        self.assertIs(result, router_cls.return_value)
+        route_factory.assert_not_called()
+        rule_factory.assert_called_with(**rule)
+        router_cls.assert_called_with(None, [rule_factory.return_value])
