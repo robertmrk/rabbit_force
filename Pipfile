@@ -10,6 +10,7 @@ pyyaml = "*"
 aioredis = "*"
 aioamqp = "*"
 marshmallow = ">=3.0.0b5,<3.1.0"
+jsonpath-ng = "*"
 
 [dev-packages]
 sphinx = "*"

@@ -94,3 +94,7 @@ class StreamingError(SalesforceError):
 
 class InvalidOperation(RabbitForceError):
     """An invalid operation"""
+
+
+class InvalidRoutingConditionError(RabbitForceError):
+    """Failed to parse routing condition"""
