@@ -6,6 +6,7 @@ from .source.message_source import SalesforceOrgMessageSource, \
     MultiMessageSource, RedisReplayStorage
 from .source.salesforce import SalesforceOrg
 from .sink.message_sink import AmqpMessageSink, MultiMessageSink
+from .routing import Route, RoutingRule, RoutingCondition, MessageRouter
 
 
 async def create_salesforce_org(*, consumer_key, consumer_secret, username,
@@ -164,3 +165,57 @@ async def create_message_sink(*, broker_specs,
 
     # group the message sink objects into a multi message sink object
     return MultiMessageSink(message_sinks, loop=loop)
+
+
+def create_rule(*, condition_spec, route_spec,
+                condition_factory=RoutingCondition, route_factory=Route):
+    """Create a routing rule from *condition_spec* and *route_spec*
+
+    :param str condition_spec: A string that can be used to construct a \
+    routing condition using the *condition_factory*
+    :param dict route_spec: A dictionary that can be used to construct a \
+    route using the *route_factory*
+    :param callable condition_factory: A callable capable of creating \
+    :py:obj:`RoutingCondition` objects
+    :param callable route_factory: A callable capable of creating \
+    :py:obj:`Route` objects
+    :return: A routing rule object
+    :rtype: RoutingRule
+    """
+    # construct the routing condition and the route
+    condition = condition_factory(condition_spec)
+    route = route_factory(**route_spec)
+
+    # return the routing rule created with the condition and route
+    return RoutingRule(condition, route)
+
+
+def create_router(*, default_route_spec, rule_specs, route_factory=Route,
+                  rule_factory=create_rule):
+    """Create a message router from the *default_route_spec* and *rule_specs*
+
+    :param default_route_spec: A dictionary that can be used to \
+    construct a route using the *route_factory*
+    :type default_route_spec: dict or None
+    :param list[dict] rule_specs: A list of dictionaries that can be used \
+    to construct routing rules with the *rule_factory*
+    :param callable route_factory: A callable capable of creating \
+    :py:obj:`Route` objects
+    :param rule_factory:  A callable capable of creating \
+    :py:obj:`RoutingRule` objects
+    :return: A message router object
+    :rtype: MessageRouter
+    """
+    # if there is no default route defined then use None
+    default_route = None
+
+    # if a default route is defined then construct it
+    if default_route_spec is not None:
+        default_route = route_factory(**default_route_spec)
+
+    # construct a list of routing rule objects from the rule specs
+    rules = [rule_factory(**spec) for spec in rule_specs]
+
+    # return a message router constructed from the default route and list of
+    # routing rules
+    return MessageRouter(default_route, rules)
