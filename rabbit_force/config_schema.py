@@ -241,8 +241,36 @@ class MessageSinkSchema(StrictSchema):
                           attribute="broker_specs")
 
 
+class RouteSchema(StrictSchema):
+    """Configuration schema for route parameters"""
+    broker_name = fields.String(required=True, validate=Length(min=1))
+    exchange_name = fields.String(required=True)
+    routing_key = fields.String(required=True, validate=Length(min=1))
+    properties = fields.Dict(keys=fields.String(),
+                             values=fields.String(),
+                             allow_none=True)
+
+
+class RoutingRuleSchema(StrictSchema):
+    """Configuration schema for routing rule"""
+    condition = fields.String(required=True, validate=Length(min=1),
+                              attribute="condition_spec")
+    route = fields.Nested(RouteSchema(), required=True, attribute="route_spec")
+
+
+class MessageRouterSchema(StrictSchema):
+    """Configuration schema for message router"""
+    default_route = fields.Nested(RouteSchema(),
+                                  required=True,
+                                  allow_none=True,
+                                  attribute="default_route_spec")
+    rules = fields.List(fields.Nested(RoutingRuleSchema()),
+                        attribute="rule_specs")
+
+
 class ApplicationConfigSchema(StrictSchema):
     """Congiguration schema for setting up the complete rabbit_force
     application"""
     source = fields.Nested(MessageSourceSchema(), required=True)
     sink = fields.Nested(MessageSinkSchema(), required=True)
+    router = fields.Nested(MessageRouterSchema(), required=True)
