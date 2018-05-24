@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "a72666a75d5356a06dcbff15849ab1b3451d59202f5d8ce289919b6b44f94aa3"
+            "sha256": "34568b0ffda632f91f1acff1fad23cff392b134988d360881e8f8b9a244d7f08"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -115,13 +115,16 @@
             ],
             "version": "==1.0.1"
         },
-        "jsonpath-ng": {
+        "jsonpath-rw": {
             "hashes": [
-                "sha256:0aeb1e9f5232bb9e1b34f02b90ac51a80100b66ffc742e0b11df93ccbde82765",
-                "sha256:b1fc75b877e9b2f46845a455fbdcfb0f0d9c727c45c19a745d02db620a9ef0be"
+                "sha256:05c471281c45ae113f6103d1268ec7a4831a2e96aa80de45edc89b11fac4fbec"
             ],
-            "index": "pypi",
-            "version": "==1.4.3"
+            "version": "==1.4.0"
+        },
+        "jsonpath-rw-ext": {
+            "editable": true,
+            "git": "https://github.com/sileht/python-jsonpath-rw-ext.git",
+            "ref": "75beb8a36abc8949c68b7ef9e20992bae9e9eb7a"
         },
         "marshmallow": {
             "hashes": [
@@ -148,6 +151,13 @@
                 "sha256:e9404e2e19e901121c3c5c6cffd5a8ae0d1d67919c970e3b3262231175713068"
             ],
             "version": "==4.3.1"
+        },
+        "pbr": {
+            "hashes": [
+                "sha256:680bf5ba9b28dd56e08eb7c267991a37c7a5f90a92c2e07108829931a50ff80a",
+                "sha256:6874feb22334a1e9a515193cba797664e940b763440c88115009ec323a7f2df5"
+            ],
+            "version": "==4.0.3"
         },
         "ply": {
             "hashes": [

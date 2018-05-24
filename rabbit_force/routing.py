@@ -1,8 +1,8 @@
 """Message routing classes"""
 from collections import namedtuple
 
-from jsonpath_ng.ext import parse
-from jsonpath_ng.lexer import JsonPathLexerError
+from jsonpath_rw_ext import parse
+from jsonpath_rw.lexer import JsonPathLexerError
 
 from rabbit_force.exceptions import InvalidRoutingConditionError
 
