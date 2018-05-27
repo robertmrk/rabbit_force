@@ -98,3 +98,7 @@ class InvalidOperation(RabbitForceError):
 
 class InvalidRoutingConditionError(RabbitForceError):
     """Failed to parse routing condition"""
+
+
+class MessageSinkError(RabbitForceError):
+    """Message sink related error"""

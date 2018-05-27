@@ -6,6 +6,7 @@ import uvloop
 
 from .factories import create_message_sink, create_message_source, \
     create_router
+from .exceptions import MessageSinkError
 
 
 LOGGER = logging.getLogger(__name__)
@@ -180,5 +181,7 @@ class Application:  # pylint: disable=too-few-public-methods
                 LOGGER.warning("No route found for message "
                                "%r on channel %r from %r, message dropped.",
                                replay_id, channel, source_name)
+        except MessageSinkError as error:
+            LOGGER.error("Failed to forward message. %s", str(error))
         except Exception:  # pylint: disable=broad-except
             LOGGER.exception("Failed to forward message.")

@@ -3,6 +3,8 @@ import asyncio
 from abc import ABC, abstractmethod
 import json
 
+from ..exceptions import MessageSinkError
+
 
 class MessageSink(ABC):
     """Abstract message sink base class
@@ -104,7 +106,11 @@ class MultiMessageSink(MessageSink):
 
     async def consume_message(self, message, sink_name, exchange_name,
                               routing_key, properties=None):
-        sink = self.sinks[sink_name]
+        try:
+            sink = self.sinks[sink_name]
+        except KeyError as error:
+            raise MessageSinkError(f"Sink named {sink_name!r} "
+                                   f"doesn't exists") from error
         await sink.consume_message(message, sink_name, exchange_name,
                                    routing_key, properties)
 

@@ -4,6 +4,7 @@ from asynctest import TestCase, mock
 
 from rabbit_force.app import Application
 from rabbit_force.routing import Route
+from rabbit_force.exceptions import MessageSinkError
 
 
 class TestApplication(TestCase):
@@ -201,6 +202,20 @@ class TestApplication(TestCase):
 
         self.assertTrue(log.output[0].startswith(
             "ERROR:rabbit_force.app:Failed to forward message."
+        ))
+        self.assertFalse(self.app._forwarding_tasks)
+
+    def test_forward_message_done_on_sink_error(self):
+        future = mock.MagicMock()
+        error = MessageSinkError("message")
+        future.result.side_effect = error
+        self.app._forwarding_tasks = {future}
+
+        with self.assertLogs("rabbit_force.app", "DEBUG") as log:
+            self.app._forward_message_done(future)
+
+        self.assertTrue(log.output[0].startswith(
+            f"ERROR:rabbit_force.app:Failed to forward message. {error!s}"
         ))
         self.assertFalse(self.app._forwarding_tasks)
 

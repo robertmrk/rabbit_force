@@ -1,6 +1,7 @@
 from asynctest import TestCase, mock
 
 from rabbit_force.sink.message_sink import AmqpMessageSink, MultiMessageSink
+from rabbit_force.exceptions import MessageSinkError
 
 
 class TestAmqpMessageSink(TestCase):
@@ -127,6 +128,23 @@ class TestMultiMessageSink(TestCase):
         self.sinks[sink_name].consume_message.assert_called_with(
             message, sink_name, exchange_name, routing_key, properties
         )
+
+    async def test_consume_message_missink_sink(self):
+        message = {"foo": "bar"}
+        sink_name = "non_existant"
+        exchange_name = "exchange name"
+        routing_key = "routing key"
+        properties = {
+            "foo": "bar",
+            "content_type": "text/html",
+            "content_encoding": "gzip"
+        }
+
+        with self.assertRaisesRegex(MessageSinkError,
+                                    f"Sink named {sink_name!r} "
+                                    f"doesn't exists"):
+            await self.sink.consume_message(message, sink_name, exchange_name,
+                                            routing_key, properties)
 
     async def test_close(self):
         for sink in self.sinks.values():
