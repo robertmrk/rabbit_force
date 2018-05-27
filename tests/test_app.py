@@ -1,4 +1,5 @@
 import asyncio
+import signal
 
 from asynctest import TestCase, mock
 
@@ -220,6 +221,10 @@ class TestApplication(TestCase):
         )
         task.cancel.assert_called()
         loop.run_until_complete.assert_has_calls([mock.call(task)] * 2)
+        loop.add_signal_handler.assert_has_calls([
+            mock.call(signal.SIGINT, task.cancel),
+            mock.call(signal.SIGTERM, task.cancel)
+        ])
 
     async def test_listen_for_messages(self):
         source = mock.MagicMock()

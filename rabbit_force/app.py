@@ -1,6 +1,7 @@
 """Application class definition"""
 import asyncio
 import logging
+import signal
 
 import uvloop
 
@@ -48,6 +49,10 @@ class Application:  # pylint: disable=too-few-public-methods
         # create an event loop and create the main task
         self._loop = asyncio.get_event_loop()
         task = asyncio.ensure_future(self._run(), loop=self._loop)
+
+        # cancel the main task on SIGINT or SIGTERM
+        for signal_id in (signal.SIGINT, signal.SIGTERM):
+            self._loop.add_signal_handler(signal_id, task.cancel)
 
         # run the task until completion
         try:
