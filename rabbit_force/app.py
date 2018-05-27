@@ -70,15 +70,12 @@ class Application:  # pylint: disable=too-few-public-methods
 
     async def _configure(self):
         """Create and configure collaborator objects"""
-
-        # if the application is already configured skip the configuration step
-        if not self._configured:
-            self._source = await create_message_source(
-                **self.config["source"]
-            )
-            self._sink = await create_message_sink(**self.config["sink"])
-            self._router = create_router(**self.config["router"])
-            self._configured = True
+        self._source = await create_message_source(
+            **self.config["source"]
+        )
+        self._sink = await create_message_sink(**self.config["sink"])
+        self._router = create_router(**self.config["router"])
+        self._configured = True
 
     async def _listen_for_messages(self):
         """Listen for incoming messages and route them to the appropriate

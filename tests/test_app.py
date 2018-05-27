@@ -48,26 +48,6 @@ class TestApplication(TestCase):
         create_router.assert_called_with(**self.app.config["router"])
         self.assertTrue(self.app._configured)
 
-    @mock.patch("rabbit_force.app.create_message_source")
-    @mock.patch("rabbit_force.app.create_message_sink")
-    @mock.patch("rabbit_force.app.create_router")
-    async def test_configure_if_already_configured(self, create_router,
-                                                   create_message_sink,
-                                                   create_message_source):
-        self.app.config = {
-            "source": {"key1": "value1"},
-            "sink": {"key2": "value2"},
-            "router": {"key3": "value3"}
-        }
-        self.app._configured = True
-
-        await self.app._configure()
-
-        create_message_source.assert_not_called()
-        create_message_sink.assert_not_called()
-        create_router.assert_not_called()
-        self.assertTrue(self.app._configured)
-
     @mock.patch("rabbit_force.app.asyncio")
     async def test_schedule_message_forwarding(self, asyncio_mod):
         self.app._loop = self.loop
