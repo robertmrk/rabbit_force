@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from marshmallow import ValidationError, fields
 
-from rabbit_force.config_schema import PushTopicSchema, \
+from rabbit_force.config import PushTopicSchema, \
     StreamingResourceSchema, StrictSchema, StreamingChannelSchema
 
 
