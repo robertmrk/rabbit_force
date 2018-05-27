@@ -102,3 +102,7 @@ class InvalidRoutingConditionError(RabbitForceError):
 
 class MessageSinkError(RabbitForceError):
     """Message sink related error"""
+
+
+class ConfigurationError(RabbitForceError):
+    """Application configuration error"""

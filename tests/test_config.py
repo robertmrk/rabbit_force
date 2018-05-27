@@ -1,9 +1,13 @@
-from unittest import TestCase
+from unittest import TestCase, mock
+import json
 
 from marshmallow import ValidationError, fields
+import yaml
 
 from rabbit_force.config import PushTopicSchema, \
-    StreamingResourceSchema, StrictSchema, StreamingChannelSchema
+    StreamingResourceSchema, StrictSchema, StreamingChannelSchema, \
+    get_config_loader, load_config
+from rabbit_force.exceptions import ConfigurationError
 
 
 class TestStrictSchema(TestCase):
@@ -256,3 +260,122 @@ class TestStreamingResourceSchema(TestCase):
             "resource_spec": data["spec"]
         }
         self.assertEqual(result, expected_data)
+
+
+class TestGetConfigLoader(TestCase):
+    def test_for_json(self):
+        result = get_config_loader("file.json")
+
+        self.assertIs(result, json.load)
+
+    def test_for_yaml(self):
+        result = get_config_loader("file.yaml")
+
+        self.assertIs(result, yaml.safe_load)
+
+    def test_for_yml(self):
+        result = get_config_loader("file.yml")
+
+        self.assertIs(result, yaml.safe_load)
+
+    def test_for_invalid_extension(self):
+        result = get_config_loader("file.xml")
+
+        self.assertIsNone(result)
+
+    def test_for_without_extension(self):
+        result = get_config_loader("file")
+
+        self.assertIsNone(result)
+
+    def test_for_empty_file_path(self):
+        result = get_config_loader("")
+
+        self.assertIsNone(result)
+
+
+class TestLoadConfig(TestCase):
+    @mock.patch("rabbit_force.config.get_config_loader")
+    def test_no_loader(self, get_config_loader):
+        get_config_loader.return_value = None
+        file_path = "file"
+
+        with self.assertRaisesRegex(ConfigurationError,
+                                    f"Unrecognized configuration file "
+                                    f"format for {file_path!r}."):
+            load_config(file_path)
+
+        get_config_loader.assert_called_with(file_path)
+
+    @mock.patch("rabbit_force.config.open")
+    @mock.patch("rabbit_force.config.get_config_loader")
+    def test_error_on_load(self, get_config_loader, open_func):
+        loader = mock.MagicMock()
+        error = Exception("message")
+        loader.side_effect = error
+        get_config_loader.return_value = loader
+        file_path = "file"
+        file_obj = object()
+        open_cm = mock.MagicMock()
+        open_cm.__enter__.return_value = file_obj
+        open_func.return_value = open_cm
+
+        with self.assertRaisesRegex(ConfigurationError,
+                                    f"Failed to load configuration "
+                                    f"file {file_path!r}. {error!s}"):
+            load_config(file_path)
+
+        get_config_loader.assert_called_with(file_path)
+        loader.assert_called_with(file_obj)
+        open_cm.__exit__.assert_called()
+
+    @mock.patch("rabbit_force.config.ApplicationConfigSchema")
+    @mock.patch("rabbit_force.config.open")
+    @mock.patch("rabbit_force.config.get_config_loader")
+    def test_error_on_validation(self, get_config_loader, open_func,
+                                 schema_cls):
+        loader = mock.MagicMock()
+        get_config_loader.return_value = loader
+        file_path = "file"
+        file_obj = object()
+        open_cm = mock.MagicMock()
+        open_cm.__enter__.return_value = file_obj
+        open_func.return_value = open_cm
+        schema = mock.MagicMock()
+        error = ValidationError("message")
+        schema.load.side_effect = error
+        schema_cls.return_value = schema
+
+        with self.assertRaisesRegex(ConfigurationError,
+                                    f"Failed to validate configuration "
+                                    f"file {file_path!r}. {error!s}"):
+            load_config(file_path)
+
+        get_config_loader.assert_called_with(file_path)
+        loader.assert_called_with(file_obj)
+        open_cm.__exit__.assert_called()
+        schema.load.assert_called_with(loader.return_value)
+
+    @mock.patch("rabbit_force.config.ApplicationConfigSchema")
+    @mock.patch("rabbit_force.config.open")
+    @mock.patch("rabbit_force.config.get_config_loader")
+    def test_success(self, get_config_loader, open_func, schema_cls):
+        loader = mock.MagicMock()
+        get_config_loader.return_value = loader
+        file_path = "file"
+        file_obj = object()
+        open_cm = mock.MagicMock()
+        open_cm.__enter__.return_value = file_obj
+        open_func.return_value = open_cm
+        schema = mock.MagicMock()
+        validated_config = object()
+        schema.load.return_value = validated_config
+        schema_cls.return_value = schema
+
+        result = load_config(file_path)
+
+        self.assertEqual(result, validated_config)
+        get_config_loader.assert_called_with(file_path)
+        loader.assert_called_with(file_obj)
+        open_cm.__exit__.assert_called()
+        schema.load.assert_called_with(loader.return_value)

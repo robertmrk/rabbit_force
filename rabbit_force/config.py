@@ -1,9 +1,14 @@
 """Configuration schemas"""
+from pathlib import Path
+import json
+
 from marshmallow import Schema, fields, validates_schema, ValidationError, \
     post_load
 from marshmallow.validate import Length, Range, OneOf
+import yaml
 
 from .source.salesforce import StreamingResourceType
+from .exceptions import ConfigurationError
 
 
 class StrictSchema(Schema):
@@ -290,3 +295,59 @@ class ApplicationConfigSchema(StrictSchema):
     source = fields.Nested(MessageSourceSchema(), required=True)
     sink = fields.Nested(MessageSinkSchema(), required=True)
     router = fields.Nested(MessageRouterSchema(), required=True)
+
+
+def get_config_loader(file_path):
+    """Find the appropriate config loader for *file_path*
+
+    :param str file_path: An absolute or relative file path
+    :return: A callable capable of loading the config file
+    :rtype: Callable or None
+    """
+    # get the file's suffix without the period
+    path = Path(file_path)
+    suffix = path.suffix.lower()
+    if suffix:
+        suffix = suffix[1:]
+
+    # return the json or the yaml load function
+    if suffix == "json":
+        return json.load
+    elif suffix in ("yml", "yaml"):
+        return yaml.safe_load
+
+    # if the suffix of the file is not recognized return None
+    return None
+
+
+def load_config(file_path):
+    """Load and validate the application's configuration from *file_path*
+
+    :param str file_path: An absolute or relative file path
+    :return: The loaded configuration
+    :rtype: dict
+    :raise ConfigurationError: If the file_path's suffix is not recognized, \
+    if the file can't be loaded or if validation of the file's contents fail.
+    """
+    # get the appropriate loader for the file_path
+    loader = get_config_loader(file_path)
+    if not loader:
+        raise ConfigurationError(f"Unrecognized configuration file "
+                                 f"format for {file_path!r}.")
+
+    # load the config file's contents
+    try:
+        with open(file_path, "rt") as file:
+            unvalidated_config = loader(file)
+    except Exception as error:
+        raise ConfigurationError(f"Failed to load configuration "
+                                 f"file {file_path!r}. {error!s}") from error
+
+    # validate the contents of the file
+    try:
+        config = ApplicationConfigSchema().load(unvalidated_config)
+    except ValidationError as error:
+        raise ConfigurationError(f"Failed to validate configuration "
+                                 f"file {file_path!r}. {error!s}") from error
+
+    return config
