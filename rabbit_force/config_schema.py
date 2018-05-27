@@ -246,9 +246,25 @@ class RouteSchema(StrictSchema):
     broker_name = fields.String(required=True, validate=Length(min=1))
     exchange_name = fields.String(required=True)
     routing_key = fields.String(required=True, validate=Length(min=1))
-    properties = fields.Dict(keys=fields.String(),
-                             values=fields.String(),
-                             allow_none=True)
+    properties = fields.Dict(
+        keys=fields.String(
+            validate=OneOf(("content_type",
+                            "content_encoding",
+                            "headers",
+                            "delivery_mode",
+                            "priority",
+                            "correlation_id",
+                            "reply_to",
+                            "expiration",
+                            "message_id",
+                            "timestamp",
+                            "type",
+                            "user_id",
+                            "app_id",
+                            "cluster_id"))
+        ),
+        allow_none=True
+    )
 
 
 class RoutingRuleSchema(StrictSchema):
