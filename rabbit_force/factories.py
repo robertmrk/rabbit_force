@@ -43,8 +43,43 @@ async def create_salesforce_org(*, consumer_key, consumer_secret, username,
     return org
 
 
+async def create_replay_storage(*, replay_spec, source_name, loop=None):
+    """Create a replay marker storage object for the given *source_name*
+    based on the *replay_spec*
+
+    :param replay_spec: Replay storage specification that can be passed \
+    to :obj:`RedisReplayStorage` to create a replay marker storage object
+    :type replay_spec: dict or None
+    :param str source_name: Name of the message source
+    :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
+                 schedule tasks. If *loop* is ``None`` then
+                 :func:`asyncio.get_event_loop` is used to get the default
+                 event loop.
+    :return:
+    """
+    replay_marker_storage = None
+    replay_fallback = None
+
+    # if the replay storage is defined
+    if replay_spec:
+        # append the value of the source_name to the key prefix
+        if replay_spec.get("key_prefix"):
+            replay_spec["key_prefix"] += ":" + source_name
+        else:
+            replay_spec["key_prefix"] = source_name
+
+        # create the replay storage from the specification and use
+        # ReplayOption.ALL_EVENTS as the replay fallback
+        replay_marker_storage = RedisReplayStorage(**replay_spec, loop=loop)
+        replay_fallback = ReplayOption.ALL_EVENTS
+
+    return replay_marker_storage, replay_fallback
+
+
 async def create_message_source(*, org_specs, replay_spec=None,
-                                org_factory=create_salesforce_org, loop=None):
+                                org_factory=create_salesforce_org,
+                                replay_storage_factory=create_replay_storage,
+                                loop=None):
     """Create a message source that wraps the salesforce org defined by
     *org_specs*
 
@@ -55,6 +90,8 @@ async def create_message_source(*, org_specs, replay_spec=None,
     :type replay_spec: dict or None
     :param callable org_factory: A callable capable of creating a Salesforce \
     org from the items of *org_specs*
+    :param callable replay_storage_factory: A callable capable of creating a \
+    replay marker storage object from the *replay_spec*
     :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
                  schedule tasks. If *loop* is ``None`` then
                  :func:`asyncio.get_event_loop` is used to get the default
@@ -62,28 +99,23 @@ async def create_message_source(*, org_specs, replay_spec=None,
     :return: A message source object
     :rtype: ~source.message_source.MessageSource
     """
-    # initially assume that there is no replay storage defined and no
-    # replay_spec fallback is used
-    replay_marker_storage = None
-    replay_fallback = None
-
-    # if the replay storage is defined then create it from the specification
-    # and use ReplayOption.ALL_EVENTS as the replay_spec fallback
-    if replay_spec:
-        replay_marker_storage = RedisReplayStorage(**replay_spec, loop=loop)
-        replay_fallback = ReplayOption.ALL_EVENTS
-
     # create the specified Salesforce orgs identified by their names
     salesforce_orgs = {name: await org_factory(**spec)
                        for name, spec in org_specs.items()}
 
     # create message sources for every Salesforce org object and use the
     # specified replay_spec marker storage and replay_spec fallback values
-    message_sources = [SalesforceOrgMessageSource(name, org,
-                                                  replay_marker_storage,
-                                                  replay_fallback,
-                                                  loop=loop)
-                       for name, org in salesforce_orgs.items()]
+    message_sources = []
+    for name, org in salesforce_orgs.items():
+        replay_marker_storage, replay_fallback = await replay_storage_factory(
+            replay_spec=replay_spec,
+            source_name=name
+        )
+        source = SalesforceOrgMessageSource(name, org,
+                                            replay_marker_storage,
+                                            replay_fallback,
+                                            loop=loop)
+        message_sources.append(source)
 
     # if there is only a single org specified, then return the message source
     # that wraps it
