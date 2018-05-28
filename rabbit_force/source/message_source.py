@@ -2,12 +2,16 @@
 import asyncio
 from abc import ABC, abstractmethod
 import pickle
+import logging
 
 from aiosfstream import Client, ReplayMarkerStorage, ReplayOption
 from aiosfstream.exceptions import AiosfstreamException, ClientInvalidOperation
 import aioredis
 
 from ..exceptions import StreamingError, InvalidOperation
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class MessageSource(ABC):
@@ -254,7 +258,14 @@ class RedisReplayStorage(ReplayMarkerStorage):
         redis = await self._get_redis()
 
         # retrieve the value of the key
-        result = await redis.get(key)
+        try:
+            result = await redis.get(key)
+
+        # on connection error log the error and return None
+        except ConnectionError as error:
+            LOGGER.error("Failed to get the replay marker from redis for "
+                         "subscription %r. %s", subscription, error)
+            return None
 
         # if there is a value stored for the key, then return the deserialized
         # value
@@ -275,4 +286,10 @@ class RedisReplayStorage(ReplayMarkerStorage):
         value = pickle.dumps(replay_marker)
 
         # set the value for the key
-        await redis.set(key, value)
+        try:
+            await redis.set(key, value)
+
+        # on connection error log the error
+        except ConnectionError as error:
+            LOGGER.error("Failed to set the replay marker in redis for "
+                         "subscription %r. %s", subscription, error)

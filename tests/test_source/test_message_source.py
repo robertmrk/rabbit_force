@@ -281,6 +281,30 @@ class TestRedisReplayStorage(TestCase):
         redis.get.assert_called_with(key)
         pickle_loads.assert_not_called()
 
+    @mock.patch("rabbit_force.source.message_source.pickle.loads")
+    async def test_get_replay_marker_on_connection_error(self, pickle_loads):
+        redis = mock.MagicMock()
+        key = "key"
+        self.replay._get_redis = mock.CoroutineMock(return_value=redis)
+        self.replay._get_key = mock.MagicMock(return_value=key)
+        error = ConnectionError("message")
+        redis.get = mock.CoroutineMock(side_effect=error)
+        deserialized_value = object()
+        pickle_loads.return_value = deserialized_value
+        subscription = "subscription"
+
+        with self.assertLogs(RedisReplayStorage.__module__, "ERROR") as log:
+            result = await self.replay.get_replay_marker(subscription)
+
+        self.assertIsNone(result)
+        self.replay._get_key.assert_called_with(subscription)
+        redis.get.assert_called_with(key)
+        self.assertEqual(log.output, [
+            f"ERROR:{RedisReplayStorage.__module__}:"
+            f"Failed to get the replay marker from redis for "
+            f"subscription {subscription!r}. {error!s}"
+        ])
+
     @mock.patch("rabbit_force.source.message_source.pickle.dumps")
     async def test_set_replay_marker(self, pickle_dumps):
         redis = mock.MagicMock()
@@ -298,3 +322,29 @@ class TestRedisReplayStorage(TestCase):
         self.replay._get_key.assert_called_with(subscription)
         pickle_dumps.assert_called_with(deserialized_value)
         redis.set.assert_called_with(key, serialized_value)
+
+    @mock.patch("rabbit_force.source.message_source.pickle.dumps")
+    async def test_set_replay_marker_on_connection_error(self, pickle_dumps):
+        redis = mock.MagicMock()
+        key = "key"
+        self.replay._get_redis = mock.CoroutineMock(return_value=redis)
+        self.replay._get_key = mock.MagicMock(return_value=key)
+        serialized_value = object()
+        deserialized_value = object()
+        error = ConnectionError("message")
+        redis.set = mock.CoroutineMock(side_effect=error)
+        pickle_dumps.return_value = serialized_value
+        subscription = "subscription"
+
+        with self.assertLogs(RedisReplayStorage.__module__, "ERROR") as log:
+            await self.replay.set_replay_marker(subscription,
+                                                deserialized_value)
+
+        self.replay._get_key.assert_called_with(subscription)
+        pickle_dumps.assert_called_with(deserialized_value)
+        redis.set.assert_called_with(key, serialized_value)
+        self.assertEqual(log.output, [
+            f"ERROR:{RedisReplayStorage.__module__}:"
+            f"Failed to set the replay marker in redis for "
+            f"subscription {subscription!r}. {error!s}"
+        ])
