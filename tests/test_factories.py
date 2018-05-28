@@ -133,8 +133,8 @@ class TestCreateMessageSource(TestCase):
 
 
 class TestCreateBroker(TestCase):
-    @mock.patch("rabbit_force.factories.aioamqp")
-    async def test_create(self, aioamqp_mod):
+    @mock.patch("rabbit_force.factories.AmqpBroker")
+    async def test_create(self, broker_cls):
         host = "host"
         exchange_specs = [{"key": "value"}]
         port = 1234
@@ -145,14 +145,9 @@ class TestCreateBroker(TestCase):
         login_method = "plain"
         insist = True
         verify_ssl = True
-        transport = object()
-        channel = mock.MagicMock()
-        channel.exchange_declare = mock.CoroutineMock()
-        protocol = mock.MagicMock()
-        protocol.channel = mock.CoroutineMock(return_value=channel)
-        aioamqp_mod.connect = mock.CoroutineMock(
-            return_value=(transport, protocol)
-        )
+        broker = mock.MagicMock()
+        broker.exchange_declare = mock.CoroutineMock()
+        broker_cls.return_value = broker
 
         result = await create_broker(
             host=host,
@@ -168,12 +163,13 @@ class TestCreateBroker(TestCase):
             loop=self.loop
         )
 
-        self.assertEqual(result, (transport, protocol))
-        aioamqp_mod.connect.assert_called_with(
-            host, port, login, password, virtualhost, ssl, login_method,
-            insist, verify_ssl=verify_ssl, loop=self.loop
+        self.assertEqual(result, broker)
+        broker_cls.assert_called_with(
+            host, port=port, login=login, password=password,
+            virtualhost=virtualhost, ssl=ssl, login_method=login_method,
+            insist=insist, verify_ssl=verify_ssl, loop=self.loop
         )
-        channel.exchange_declare.assert_called_with(**exchange_specs[0])
+        broker.exchange_declare.assert_called_with(**exchange_specs[0])
 
 
 class TestCreateMessageSink(TestCase):
@@ -184,7 +180,7 @@ class TestCreateMessageSink(TestCase):
                 "key": "value"
             }
         }
-        broker = (object(), object())
+        broker = object()
         broker_factory = mock.CoroutineMock(return_value=broker)
         message_sink = object()
         broker_sink_factory = mock.MagicMock(return_value=message_sink)
@@ -199,7 +195,7 @@ class TestCreateMessageSink(TestCase):
         self.assertIs(result, multi_sink_cls.return_value)
         broker_factory.assert_called_with(**broker_specs["broker1"],
                                           loop=self.loop)
-        broker_sink_factory.assert_called_with(*broker)
+        broker_sink_factory.assert_called_with(broker)
         multi_sink_cls.assert_called_with(
             {"broker1": message_sink}, loop=self.loop
         )

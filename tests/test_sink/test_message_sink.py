@@ -1,37 +1,20 @@
 from asynctest import TestCase, mock
 
-from rabbit_force.sink.message_sink import AmqpMessageSink, MultiMessageSink
-from rabbit_force.exceptions import MessageSinkError
+from rabbit_force.sink.message_sink import AmqpBrokerMessageSink, \
+    MultiMessageSink
+from rabbit_force.exceptions import MessageSinkError, NetworkError
 
 
 class TestAmqpMessageSink(TestCase):
     def setUp(self):
-        self.protocol = mock.MagicMock()
-        self.transport = mock.MagicMock()
+        self.broker = mock.MagicMock()
         self.json_dumps = mock.MagicMock()
-        self.sink = AmqpMessageSink(self.transport, self.protocol,
-                                    self.json_dumps)
+        self.sink = AmqpBrokerMessageSink(self.broker, self.json_dumps)
 
     def test_init(self):
-        self.assertIs(self.sink.protocol, self.protocol)
-        self.assertIs(self.sink.transport, self.transport)
+        self.assertIs(self.sink.broker, self.broker)
         self.assertIs(self.sink._json_dumps, self.json_dumps)
         self.assertIsNone(self.sink.channel)
-
-    async def test_get_channel(self):
-        self.sink.channel = object()
-
-        result = await self.sink._get_channel()
-
-        self.assertIs(result, self.sink.channel)
-
-    async def test_get_channel_creates_channel(self):
-        self.sink.protocol.channel = mock.CoroutineMock()
-
-        result = await self.sink._get_channel()
-
-        self.assertIs(result, self.protocol.channel.return_value)
-        self.assertIs(self.sink.channel, self.protocol.channel.return_value)
 
     async def test_consume_message(self):
         message = {"foo": "bar"}
@@ -47,9 +30,7 @@ class TestAmqpMessageSink(TestCase):
         unencoded_message = mock.MagicMock()
         unencoded_message.encode.return_value = encoded_message
         self.json_dumps.return_value = unencoded_message
-        channel = mock.MagicMock()
-        channel.publish = mock.CoroutineMock()
-        self.sink._get_channel = mock.CoroutineMock(return_value=channel)
+        self.broker.publish = mock.CoroutineMock()
 
         await self.sink.consume_message(message, sink_name, exchange_name,
                                         routing_key, properties)
@@ -59,9 +40,9 @@ class TestAmqpMessageSink(TestCase):
         expected_properties["content_encoding"] = self.sink.ENCODING
         self.json_dumps.assert_called_with(message)
         unencoded_message.encode.assert_called_with(self.sink.ENCODING)
-        channel.publish.assert_called_with(encoded_message, exchange_name,
-                                           routing_key,
-                                           properties=expected_properties)
+        self.broker.publish.assert_called_with(encoded_message, exchange_name,
+                                               routing_key,
+                                               properties=expected_properties)
 
     async def test_consume_message_without_properties(self):
         message = {"foo": "bar"}
@@ -73,9 +54,7 @@ class TestAmqpMessageSink(TestCase):
         unencoded_message = mock.MagicMock()
         unencoded_message.encode.return_value = encoded_message
         self.json_dumps.return_value = unencoded_message
-        channel = mock.MagicMock()
-        channel.publish = mock.CoroutineMock()
-        self.sink._get_channel = mock.CoroutineMock(return_value=channel)
+        self.broker.publish = mock.CoroutineMock()
 
         await self.sink.consume_message(message, sink_name, exchange_name,
                                         routing_key, properties)
@@ -85,17 +64,16 @@ class TestAmqpMessageSink(TestCase):
         expected_properties["content_encoding"] = self.sink.ENCODING
         self.json_dumps.assert_called_with(message)
         unencoded_message.encode.assert_called_with(self.sink.ENCODING)
-        channel.publish.assert_called_with(encoded_message, exchange_name,
-                                           routing_key,
-                                           properties=expected_properties)
+        self.broker.publish.assert_called_with(encoded_message, exchange_name,
+                                               routing_key,
+                                               properties=expected_properties)
 
     async def test_close(self):
-        self.protocol.close = mock.CoroutineMock()
+        self.broker.close = mock.CoroutineMock()
 
         await self.sink.close()
 
-        self.protocol.close.assert_called()
-        self.transport.close.assert_called()
+        self.broker.close.assert_called()
 
 
 class TestMultiMessageSink(TestCase):
@@ -143,6 +121,26 @@ class TestMultiMessageSink(TestCase):
         with self.assertRaisesRegex(MessageSinkError,
                                     f"Sink named {sink_name!r} "
                                     f"doesn't exists"):
+            await self.sink.consume_message(message, sink_name, exchange_name,
+                                            routing_key, properties)
+
+    async def test_consume_message_on_network_error(self):
+        message = {"foo": "bar"}
+        sink_name = "sink1"
+        exchange_name = "exchange name"
+        routing_key = "routing key"
+        properties = {
+            "foo": "bar",
+            "content_type": "text/html",
+            "content_encoding": "gzip"
+        }
+        error = NetworkError("message")
+        self.sinks[sink_name].consume_message = mock.CoroutineMock(
+            side_effect=error
+        )
+
+        with self.assertRaisesRegex(MessageSinkError,
+                                    f"Network error: {error!s}"):
             await self.sink.consume_message(message, sink_name, exchange_name,
                                             routing_key, properties)
 

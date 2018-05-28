@@ -1,12 +1,12 @@
 """Factory functions for creating objects from the configuration"""
 from aiosfstream import ReplayOption
-import aioamqp
 
 from .source.message_source import SalesforceOrgMessageSource, \
     MultiMessageSource, RedisReplayStorage
 from .source.salesforce import SalesforceOrg
-from .sink.message_sink import AmqpMessageSink, MultiMessageSink
+from .sink.message_sink import AmqpBrokerMessageSink, MultiMessageSink
 from .routing import Route, RoutingRule, RoutingCondition, MessageRouter
+from .amqp_broker import AmqpBroker
 
 
 async def create_salesforce_org(*, consumer_key, consumer_secret, username,
@@ -150,27 +150,25 @@ async def create_broker(*, host, exchange_specs, port=None, login='guest',
                  schedule tasks. If *loop* is ``None`` then
                  :func:`asyncio.get_event_loop` is used to get the default
                  event loop.
-    :return: a tuple (transport, protocol) of an AmqpProtocol instance
-    :rtype: tuple[asyncio.BaseTransport, aioamqp.protocol.AmqpProtocol]
+    :return: An AMQP broker instance
+    :rtype: AmqpBroker
     """
-    # connect to the broker and create the transport and protocol objects
-    transport, protocol = await aioamqp.connect(host, port, login, password,
-                                                virtualhost, ssl, login_method,
-                                                insist, verify_ssl=verify_ssl,
-                                                loop=loop)
+    # create a broker object
+    broker = AmqpBroker(host, port=port, login=login, password=password,
+                        virtualhost=virtualhost, ssl=ssl,
+                        login_method=login_method, insist=insist,
+                        verify_ssl=verify_ssl, loop=loop)
 
-    # create a channel and declare the exchanges
-    channel = await protocol.channel()
+    # declare the exchanges
     for spec in exchange_specs:
-        await channel.exchange_declare(**spec)
+        await broker.exchange_declare(**spec)
 
-    # return the connections transport and protocol
-    return transport, protocol
+    return broker
 
 
 async def create_message_sink(*, broker_specs,
                               broker_factory=create_broker,
-                              broker_sink_factory=AmqpMessageSink,
+                              broker_sink_factory=AmqpBrokerMessageSink,
                               loop=None):
     """Create a message sink that wraps the brokers defined by
     *broker_specs*
@@ -192,7 +190,7 @@ async def create_message_sink(*, broker_specs,
                for name, params in broker_specs.items()}
 
     # create message sink for every broker object
-    message_sinks = {name: broker_sink_factory(*broker)
+    message_sinks = {name: broker_sink_factory(broker)
                      for name, broker in brokers.items()}
 
     # group the message sink objects into a multi message sink object
