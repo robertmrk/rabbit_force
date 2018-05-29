@@ -5,7 +5,8 @@ from aiosfstream.exceptions import ClientInvalidOperation, AiosfstreamException
 
 from rabbit_force.source.message_source import SalesforceOrgMessageSource, \
     MultiMessageSource, RedisReplayStorage
-from rabbit_force.exceptions import InvalidOperation, StreamingError
+from rabbit_force.exceptions import InvalidOperation, MessageSourceError, \
+    ReplayStorageError
 
 
 class TestSalesforceOrgMessageSource(TestCase):
@@ -19,11 +20,13 @@ class TestSalesforceOrgMessageSource(TestCase):
         self.org.authenticator = mock.MagicMock()
         self.replay = object()
         self.replay_fallback = object()
+        self.connection_timeout = 20.0
         self.source = SalesforceOrgMessageSource(
             self.name,
             self.org,
             replay=self.replay,
             replay_fallback=self.replay_fallback,
+            connection_timeout=self.connection_timeout,
             loop=self.loop
         )
 
@@ -33,7 +36,7 @@ class TestSalesforceOrgMessageSource(TestCase):
             self.org.authenticator,
             replay=self.replay,
             replay_fallback=self.replay_fallback,
-            connection_timeout=0,
+            connection_timeout=self.connection_timeout,
             loop=self.loop
         )
         self.assertEqual(self.source.client, self.client)
@@ -90,11 +93,12 @@ class TestSalesforceOrgMessageSource(TestCase):
 
         self.client.receive.assert_called()
 
-    async def test_get_message_streaming_error(self):
-        error = AiosfstreamException()
+    async def test_get_message_message_source_error(self):
+        error = AiosfstreamException("message")
         self.client.receive = mock.CoroutineMock(side_effect=error)
 
-        with self.assertRaisesRegex(StreamingError, str(error)):
+        with self.assertRaisesRegex(MessageSourceError,
+                                    f"Message reception failure. {error!s}"):
             await self.source.get_message()
 
         self.client.receive.assert_called()
@@ -282,7 +286,9 @@ class TestRedisReplayStorage(TestCase):
         pickle_loads.assert_not_called()
 
     @mock.patch("rabbit_force.source.message_source.pickle.loads")
-    async def test_get_replay_marker_on_connection_error(self, pickle_loads):
+    async def test_get_replay_marker_on_get_connection_error(self,
+                                                             pickle_loads):
+        self.replay.ignore_network_errors = True
         redis = mock.MagicMock()
         key = "key"
         self.replay._get_redis = mock.CoroutineMock(return_value=redis)
@@ -305,6 +311,35 @@ class TestRedisReplayStorage(TestCase):
             f"subscription {subscription!r}. {error!s}"
         ])
 
+    async def test_get_replay_marker_on_get_redis_connection_error(self):
+        self.replay.ignore_network_errors = True
+        key = "key"
+        error = ConnectionError("message")
+        self.replay._get_redis = mock.CoroutineMock(side_effect=error)
+        self.replay._get_key = mock.MagicMock(return_value=key)
+        subscription = "subscription"
+
+        with self.assertLogs(RedisReplayStorage.__module__, "ERROR") as log:
+            result = await self.replay.get_replay_marker(subscription)
+
+        self.assertIsNone(result)
+        self.assertEqual(log.output, [
+            f"ERROR:{RedisReplayStorage.__module__}:"
+            f"Failed to get the replay marker from redis for "
+            f"subscription {subscription!r}. {error!s}"
+        ])
+
+    async def test_get_replay_marker_on_get_redis_connection_error_not_ignored(
+            self):
+        key = "key"
+        error = ConnectionError("message")
+        self.replay._get_redis = mock.CoroutineMock(side_effect=error)
+        self.replay._get_key = mock.MagicMock(return_value=key)
+        subscription = "subscription"
+
+        with self.assertRaisesRegex(ReplayStorageError, str(error)):
+            await self.replay.get_replay_marker(subscription)
+
     @mock.patch("rabbit_force.source.message_source.pickle.dumps")
     async def test_set_replay_marker(self, pickle_dumps):
         redis = mock.MagicMock()
@@ -324,7 +359,9 @@ class TestRedisReplayStorage(TestCase):
         redis.set.assert_called_with(key, serialized_value)
 
     @mock.patch("rabbit_force.source.message_source.pickle.dumps")
-    async def test_set_replay_marker_on_connection_error(self, pickle_dumps):
+    async def test_set_replay_marker_on_set_connection_error(self,
+                                                             pickle_dumps):
+        self.replay.ignore_network_errors = True
         redis = mock.MagicMock()
         key = "key"
         self.replay._get_redis = mock.CoroutineMock(return_value=redis)
@@ -348,3 +385,36 @@ class TestRedisReplayStorage(TestCase):
             f"Failed to set the replay marker in redis for "
             f"subscription {subscription!r}. {error!s}"
         ])
+
+    async def test_set_replay_marker_on_get_redis_connection_error(self):
+        self.replay.ignore_network_errors = True
+        key = "key"
+        error = ConnectionError("message")
+        self.replay._get_redis = mock.CoroutineMock(side_effect=error)
+        self.replay._get_key = mock.MagicMock(return_value=key)
+        deserialized_value = object()
+        subscription = "subscription"
+
+        with self.assertLogs(RedisReplayStorage.__module__, "ERROR") as log:
+            await self.replay.set_replay_marker(subscription,
+                                                deserialized_value)
+
+        self.replay._get_key.assert_called_with(subscription)
+        self.assertEqual(log.output, [
+            f"ERROR:{RedisReplayStorage.__module__}:"
+            f"Failed to set the replay marker in redis for "
+            f"subscription {subscription!r}. {error!s}"
+        ])
+
+    async def test_set_replay_marker_on_get_redis_connection_error_not_ignored(
+            self):
+        key = "key"
+        error = ConnectionError("message")
+        self.replay._get_redis = mock.CoroutineMock(side_effect=error)
+        self.replay._get_key = mock.MagicMock(return_value=key)
+        deserialized_value = object()
+        subscription = "subscription"
+
+        with self.assertRaisesRegex(ReplayStorageError, str(error)):
+            await self.replay.set_replay_marker(subscription,
+                                                deserialized_value)

@@ -64,12 +64,16 @@ class TestCreateMessageSource(TestCase):
             side_effect=((replay_storage1, ReplayOption.ALL_EVENTS),
                          (replay_storage2, ReplayOption.ALL_EVENTS))
         )
+        ignore_replay_storage_errors = True
+        connection_timeout = 20.0
 
         result = await create_message_source(
             org_specs=org_specs,
             replay_spec=replay_spec,
             org_factory=org_factory,
             replay_storage_factory=replay_storage_factory,
+            ignore_replay_storage_errors=ignore_replay_storage_errors,
+            connection_timeout=connection_timeout,
             loop=self.loop
         )
 
@@ -79,14 +83,22 @@ class TestCreateMessageSource(TestCase):
             mock.call(**org_specs["org_name2"])
         ])
         replay_storage_factory.assert_has_calls([
-            mock.call(replay_spec=replay_spec, source_name="org_name1"),
-            mock.call(replay_spec=replay_spec, source_name="org_name2")
+            mock.call(replay_spec=replay_spec,
+                      source_name="org_name1",
+                      ignore_network_errors=ignore_replay_storage_errors,
+                      loop=self.loop),
+            mock.call(replay_spec=replay_spec,
+                      source_name="org_name2",
+                      ignore_network_errors=ignore_replay_storage_errors,
+                      loop=self.loop)
         ])
         org_source_cls.assert_has_calls([
             mock.call("org_name1", org1, replay_storage1,
-                      ReplayOption.ALL_EVENTS, loop=self.loop),
+                      ReplayOption.ALL_EVENTS, connection_timeout,
+                      loop=self.loop),
             mock.call("org_name2", org2, replay_storage2,
-                      ReplayOption.ALL_EVENTS, loop=self.loop)
+                      ReplayOption.ALL_EVENTS, connection_timeout,
+                      loop=self.loop)
         ])
         multi_source_cls.assert_called_with([org_source1, org_source2],
                                             loop=self.loop)
@@ -109,12 +121,16 @@ class TestCreateMessageSource(TestCase):
         replay_storage_factory = mock.CoroutineMock(
             return_value=(replay_storage1, ReplayOption.ALL_EVENTS)
         )
+        ignore_replay_storage_errors = True
+        connection_timeout = 20.0
 
         result = await create_message_source(
             org_specs=org_specs,
             replay_spec=replay_spec,
             org_factory=org_factory,
             replay_storage_factory=replay_storage_factory,
+            ignore_replay_storage_errors=ignore_replay_storage_errors,
+            connection_timeout=connection_timeout,
             loop=self.loop
         )
 
@@ -123,11 +139,15 @@ class TestCreateMessageSource(TestCase):
             mock.call(**org_specs["org_name1"])
         ])
         replay_storage_factory.assert_has_calls([
-            mock.call(replay_spec=replay_spec, source_name="org_name1")
+            mock.call(replay_spec=replay_spec,
+                      source_name="org_name1",
+                      ignore_network_errors=ignore_replay_storage_errors,
+                      loop=self.loop)
         ])
         org_source_cls.assert_has_calls([
             mock.call("org_name1", org1, replay_storage1,
-                      ReplayOption.ALL_EVENTS, loop=self.loop)
+                      ReplayOption.ALL_EVENTS, connection_timeout,
+                      loop=self.loop)
         ])
         multi_source_cls.assert_not_called()
 
@@ -287,12 +307,14 @@ class TestCreateReplayStorage(TestCase):
             "key_prefix": "prefix"
         }
         source_name = "name"
+        ignore_network_errors = True
         replay = object()
         replay_cls.return_value = replay
 
         result = await create_replay_storage(
             replay_spec=replay_spec,
             source_name=source_name,
+            ignore_network_errors=ignore_network_errors,
             loop=self.loop
         )
 
@@ -301,6 +323,7 @@ class TestCreateReplayStorage(TestCase):
         replay_cls.assert_called_with(
             address="address",
             key_prefix="prefix:name",
+            ignore_network_errors=ignore_network_errors,
             loop=self.loop
         )
 
@@ -310,12 +333,14 @@ class TestCreateReplayStorage(TestCase):
             "address": "address"
         }
         source_name = "name"
+        ignore_network_errors = True
         replay = object()
         replay_cls.return_value = replay
 
         result = await create_replay_storage(
             replay_spec=replay_spec,
             source_name=source_name,
+            ignore_network_errors=ignore_network_errors,
             loop=self.loop
         )
 
@@ -324,5 +349,6 @@ class TestCreateReplayStorage(TestCase):
         replay_cls.assert_called_with(
             address="address",
             key_prefix="name",
+            ignore_network_errors=ignore_network_errors,
             loop=self.loop
         )

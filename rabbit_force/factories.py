@@ -43,7 +43,8 @@ async def create_salesforce_org(*, consumer_key, consumer_secret, username,
     return org
 
 
-async def create_replay_storage(*, replay_spec, source_name, loop=None):
+async def create_replay_storage(*, replay_spec, source_name,
+                                ignore_network_errors=False, loop=None):
     """Create a replay marker storage object for the given *source_name*
     based on the *replay_spec*
 
@@ -51,6 +52,9 @@ async def create_replay_storage(*, replay_spec, source_name, loop=None):
     to :obj:`RedisReplayStorage` to create a replay marker storage object
     :type replay_spec: dict or None
     :param str source_name: Name of the message source
+    :param bool ignore_network_errors: If True then no exceptions will \
+    be raised in case of a network error occurs in the replay marker storage \
+    object
     :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
                  schedule tasks. If *loop* is ``None`` then
                  :func:`asyncio.get_event_loop` is used to get the default
@@ -70,7 +74,10 @@ async def create_replay_storage(*, replay_spec, source_name, loop=None):
 
         # create the replay storage from the specification and use
         # ReplayOption.ALL_EVENTS as the replay fallback
-        replay_marker_storage = RedisReplayStorage(**replay_spec, loop=loop)
+        replay_marker_storage = RedisReplayStorage(
+            **replay_spec,
+            ignore_network_errors=ignore_network_errors,
+            loop=loop)
         replay_fallback = ReplayOption.ALL_EVENTS
 
     return replay_marker_storage, replay_fallback
@@ -79,6 +86,8 @@ async def create_replay_storage(*, replay_spec, source_name, loop=None):
 async def create_message_source(*, org_specs, replay_spec=None,
                                 org_factory=create_salesforce_org,
                                 replay_storage_factory=create_replay_storage,
+                                ignore_replay_storage_errors=False,
+                                connection_timeout=10.0,
                                 loop=None):
     """Create a message source that wraps the salesforce org defined by
     *org_specs*
@@ -92,6 +101,13 @@ async def create_message_source(*, org_specs, replay_spec=None,
     org from the items of *org_specs*
     :param callable replay_storage_factory: A callable capable of creating a \
     replay marker storage object from the *replay_spec*
+    :param bool ignore_replay_storage_errors: If True then no exceptions will \
+    be raised in case of a network error occurs in the replay marker storage \
+    object
+    :param connection_timeout: The maximum amount of time to wait for the \
+    client to re-establish a connection with the server when the \
+    connection fails.
+    :type connection_timeout: int, float or None
     :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
                  schedule tasks. If *loop* is ``None`` then
                  :func:`asyncio.get_event_loop` is used to get the default
@@ -109,11 +125,14 @@ async def create_message_source(*, org_specs, replay_spec=None,
     for name, org in salesforce_orgs.items():
         replay_marker_storage, replay_fallback = await replay_storage_factory(
             replay_spec=replay_spec,
-            source_name=name
+            source_name=name,
+            ignore_network_errors=ignore_replay_storage_errors,
+            loop=loop
         )
         source = SalesforceOrgMessageSource(name, org,
                                             replay_marker_storage,
                                             replay_fallback,
+                                            connection_timeout,
                                             loop=loop)
         message_sources.append(source)
 

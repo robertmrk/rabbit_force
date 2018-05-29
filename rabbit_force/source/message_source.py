@@ -8,7 +8,8 @@ from aiosfstream import Client, ReplayMarkerStorage, ReplayOption
 from aiosfstream.exceptions import AiosfstreamException, ClientInvalidOperation
 import aioredis
 
-from ..exceptions import StreamingError, InvalidOperation
+from ..exceptions import MessageSourceError, InvalidOperation, \
+    ReplayStorageError
 
 
 LOGGER = logging.getLogger(__name__)
@@ -63,7 +64,7 @@ class SalesforceOrgMessageSource(MessageSource):
 
     """Message source for fetching Streaming API messages"""
     def __init__(self, name, salesforce_org, replay=ReplayOption.NEW_EVENTS,
-                 replay_fallback=None, loop=None):
+                 replay_fallback=None, connection_timeout=10.0, loop=None):
         """
         :param str name: The name of the message source
         :param SalesforceOrg salesforce_org: A salesforce org object
@@ -79,6 +80,10 @@ class SalesforceOrgMessageSource(MessageSource):
         operation fails because a replay id was specified for a message \
         outside the retention window
         :type replay_fallback: aiosfstream.ReplayOption
+        :param connection_timeout: The maximum amount of time to wait for the \
+        client to re-establish a connection with the server when the \
+        connection fails.
+        :type connection_timeout: int, float or None
         :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
                      schedule tasks. If *loop* is ``None`` then
                      :func:`asyncio.get_event_loop` is used to get the default
@@ -91,7 +96,7 @@ class SalesforceOrgMessageSource(MessageSource):
         self.client = Client(self.salesforce_org.authenticator,
                              replay=replay,
                              replay_fallback=replay_fallback,
-                             connection_timeout=0,
+                             connection_timeout=connection_timeout,
                              loop=self._loop)
 
     # pylint: enable=too-many-arguments
@@ -133,9 +138,11 @@ class SalesforceOrgMessageSource(MessageSource):
         except ClientInvalidOperation as error:
             raise InvalidOperation(str(error)) from error
 
-        # raise a StreamingError for all other aiosfstream errors
+        # raise a MessageSourceError for all other aiosfstream errors
         except AiosfstreamException as error:
-            raise StreamingError("Message reception failure.") from error
+            raise MessageSourceError(
+                f"Message reception failure. {error!s}"
+            ) from error
 
 
 class MultiMessageSource(MessageSource):
@@ -208,10 +215,13 @@ class MultiMessageSource(MessageSource):
 
 class RedisReplayStorage(ReplayMarkerStorage):
     """Redis ReplayMarkerStorage implementation"""
-    def __init__(self, address, *, key_prefix=None, loop=None, **kwargs):
+    def __init__(self, address, *, key_prefix=None,
+                 ignore_network_errors=False, loop=None, **kwargs):
         """
         :param str address: Server address
         :param str key_prefix: A prefix string to add to all keys
+        :param bool ignore_network_errors: If True then no exceptions will \
+        be raised in case of a network error.
         :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
                      schedule tasks. If *loop* is ``None`` then
                      :func:`asyncio.get_event_loop` is used to get the default
@@ -224,6 +234,7 @@ class RedisReplayStorage(ReplayMarkerStorage):
         self.key_prefix = key_prefix or ""
         self.address = address
         self.additional_params = kwargs
+        self.ignore_network_errors = ignore_network_errors
         self._redis = None
 
     def _get_key(self, subscription):
@@ -254,18 +265,25 @@ class RedisReplayStorage(ReplayMarkerStorage):
         # get a key for the subscription
         key = self._get_key(subscription)
 
-        # get the client object
-        redis = await self._get_redis()
-
-        # retrieve the value of the key
         try:
+            # get the client object
+            redis = await self._get_redis()
+
+            # retrieve the value of the key
             result = await redis.get(key)
 
         # on connection error log the error and return None
         except ConnectionError as error:
-            LOGGER.error("Failed to get the replay marker from redis for "
-                         "subscription %r. %s", subscription, error)
-            return None
+            error_message = (f"Failed to get the replay marker from redis for "
+                             f"subscription {subscription!r}. {error!s}")
+
+            # if network errors should be ignored only log the error
+            if self.ignore_network_errors:
+                LOGGER.error(error_message)
+                return None
+            # otherwise raise an exception
+            else:
+                raise ReplayStorageError(error_message) from error
 
         # if there is a value stored for the key, then return the deserialized
         # value
@@ -279,17 +297,24 @@ class RedisReplayStorage(ReplayMarkerStorage):
         # get a key for the subscription
         key = self._get_key(subscription)
 
-        # get the client object
-        redis = await self._get_redis()
-
-        # serialize the replay marker
-        value = pickle.dumps(replay_marker)
-
-        # set the value for the key
         try:
+            # get the client object
+            redis = await self._get_redis()
+
+            # serialize the replay marker
+            value = pickle.dumps(replay_marker)
+
+            # set the value for the key
             await redis.set(key, value)
 
         # on connection error log the error
         except ConnectionError as error:
-            LOGGER.error("Failed to set the replay marker in redis for "
-                         "subscription %r. %s", subscription, error)
+            error_message = (f"Failed to set the replay marker in redis for "
+                             f"subscription {subscription!r}. {error!s}")
+
+            # if network errors should be ignored only log the error
+            if self.ignore_network_errors:
+                LOGGER.error(error_message)
+            # otherwise raise an exception
+            else:
+                raise ReplayStorageError(error_message) from error

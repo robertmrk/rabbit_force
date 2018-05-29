@@ -12,20 +12,39 @@ from .exceptions import MessageSinkError
 
 LOGGER = logging.getLogger(__name__)
 
+# pylint: disable=too-few-public-methods, too-many-instance-attributes
 
-class Application:  # pylint: disable=too-few-public-methods
+
+class Application:
     """Rabbit force application"""
 
-    def __init__(self, config):
+    def __init__(self, config, ignore_replay_storage_errors=False,
+                 ignore_sink_errors=False,
+                 source_connection_timeout=10.0):
         """
         The application configures itself the first time :meth:`run` is called.
         If you want to run the application with a different configuration then
         a new Application instance should be created.
 
         :param dict config: Application configuration
+        :param bool ignore_replay_storage_errors: If True then no exceptions \
+        will be raised in case of a network error occurs in the replay marker \
+        storage object
+        :param bool ignore_sink_errors: If True then no exceptions \
+        will be raised in case a message sink error occurs
+        :param source_connection_timeout: The maximum amount of time to wait \
+        for the message source to re-establish a connection with the server \
+        when the connection fails.
+        :type source_connection_timeout: int, float or None
         """
         #: The application's configuration
         self.config = config
+        #: Marks whether to raise exceptions on replay storage errors or not
+        self.ignore_replay_storage_errors = ignore_replay_storage_errors
+        #: Marks whether to raise exceptions on message sink errors or not
+        self.ignore_sink_errors = ignore_sink_errors
+        #: Maximum allowed connection timeout for message source
+        self.source_connection_timeout = source_connection_timeout
         #: Marks whether the application is already configured or not
         self._configured = False
         #: A message source object
@@ -76,9 +95,15 @@ class Application:  # pylint: disable=too-few-public-methods
     async def _configure(self):
         """Create and configure collaborator objects"""
         self._source = await create_message_source(
-            **self.config["source"]
+            **self.config["source"],
+            ignore_replay_storage_errors=self.ignore_replay_storage_errors,
+            connection_timeout=self.source_connection_timeout,
+            loop=self._loop
         )
-        self._sink = await create_message_sink(**self.config["sink"])
+        self._sink = await create_message_sink(
+            **self.config["sink"],
+            loop=self._loop
+        )
         self._router = create_router(**self.config["router"])
         self._configured = True
 
@@ -89,31 +114,38 @@ class Application:  # pylint: disable=too-few-public-methods
         This method will block until it's cancelled. On cancellation it'll
         drain all the pending messages and forwarding tasks.
         """
-        # open the message source
-        await self._source.open()
+        try:
+            # open the message source
+            await self._source.open()
 
-        # consume messages until the message source is not closed, or until
-        # all the messages are consumed from a closed message source
-        while not self._source.closed or self._source.has_pending_messages:
-            try:
-                # await an incoming message
-                source_name, message = await self._source.get_message()
+            # consume messages until the message source is not closed, or until
+            # all the messages are consumed from a closed message source
+            while not self._source.closed or self._source.has_pending_messages:
+                try:
+                    # await an incoming message
+                    source_name, message = await self._source.get_message()
 
-                # forward the message in non blocking fashion (without awaiting
-                # the tasks result)
-                await self._schedule_message_forwarding(source_name, message)
+                    # forward the message in non blocking fashion
+                    # (without awaiting the tasks result)
+                    await self._schedule_message_forwarding(source_name,
+                                                            message)
 
-            # on cancellation close the message source but continue to
-            # consume pending messages until there is no more left
-            except asyncio.CancelledError:
-                await self._source.close()
+                # on cancellation close the message source but continue to
+                # consume pending messages until there is no more left
+                except asyncio.CancelledError:
+                    await self._source.close()
 
-        # if the source is closed and there are no more messages to consume,
-        # await the completion of scheduled forwaring tasks
-        await self._wait_scheduled_forwarding_tasks()
+        finally:
+            # close the source in case it wasn't closed in the inner loop
+            # (idempotent if already closed)
+            await self._source.close()
 
-        # when all the messages are forwarded close the message sink
-        await self._sink.close()
+            # if the source is closed and there are no more messages to
+            # consume, await the completion of scheduled forwaring tasks
+            await self._wait_scheduled_forwarding_tasks()
+
+            # when all the messages are forwarded close the message sink
+            await self._sink.close()
 
     async def _schedule_message_forwarding(self, source_name, message):
         """Create a task for forwarding the *message* from *source_name* and
@@ -184,6 +216,11 @@ class Application:  # pylint: disable=too-few-public-methods
                                "%r on channel %r from %r, message dropped.",
                                replay_id, channel, source_name)
         except MessageSinkError as error:
-            LOGGER.error("Failed to forward message. %s", str(error))
+            if self.ignore_sink_errors:
+                LOGGER.error("Failed to forward message. %s", str(error))
+            else:
+                raise
         except Exception:  # pylint: disable=broad-except
             LOGGER.exception("Failed to forward message.")
+
+# pylint: enable=too-few-public-methods, too-many-instance-attributes

@@ -11,16 +11,31 @@ from rabbit_force.exceptions import MessageSinkError
 class TestApplication(TestCase):
     def setUp(self):
         self.config = object()
-        self.app = Application(self.config)
+        self.ignore_replay_storage_errors = True
+        self.ignore_sink_errors = True
+        self.source_connection_timeout = 20
+        self.app = Application(
+            self.config,
+            ignore_replay_storage_errors=self.ignore_replay_storage_errors,
+            ignore_sink_errors=self.ignore_sink_errors,
+            source_connection_timeout=self.source_connection_timeout
+        )
+        self.app._loop = self.loop
 
     def test_init(self):
         self.assertIs(self.app.config, self.config)
+        self.assertEqual(self.app.ignore_replay_storage_errors,
+                         self.ignore_replay_storage_errors)
+        self.assertEqual(self.app.ignore_sink_errors,
+                         self.ignore_sink_errors)
+        self.assertEqual(self.app.source_connection_timeout,
+                         self.source_connection_timeout)
         self.assertIsNone(self.app._source)
         self.assertIsNone(self.app._sink)
         self.assertIsNone(self.app._router)
         self.assertFalse(self.app._configured)
         self.assertEqual(self.app._forwarding_tasks, set())
-        self.assertIsNone(self.app._loop)
+        self.assertIs(self.app._loop, self.loop)
 
     async def test__run(self):
         self.app._configure = mock.CoroutineMock()
@@ -44,8 +59,16 @@ class TestApplication(TestCase):
 
         await self.app._configure()
 
-        create_message_source.assert_called_with(**self.app.config["source"])
-        create_message_sink.assert_called_with(**self.app.config["sink"])
+        create_message_source.assert_called_with(
+            **self.app.config["source"],
+            ignore_replay_storage_errors=self.ignore_replay_storage_errors,
+            connection_timeout=self.source_connection_timeout,
+            loop=self.loop
+        )
+        create_message_sink.assert_called_with(
+            **self.app.config["sink"],
+            loop=self.loop
+        )
         create_router.assert_called_with(**self.app.config["router"])
         self.assertTrue(self.app._configured)
 
@@ -200,6 +223,16 @@ class TestApplication(TestCase):
         ))
         self.assertFalse(self.app._forwarding_tasks)
 
+    def test_forward_message_done_on_sink_error_not_ignored(self):
+        self.app.ignore_sink_errors = False
+        future = mock.MagicMock()
+        error = MessageSinkError("message")
+        future.result.side_effect = error
+        self.app._forwarding_tasks = {future}
+
+        with self.assertRaisesRegex(MessageSinkError, str(error)):
+            self.app._forward_message_done(future)
+
     @mock.patch("rabbit_force.app.uvloop")
     @mock.patch("rabbit_force.app.asyncio")
     async def test_run(self, asyncio_mod, uvloop_mod):
@@ -254,6 +287,7 @@ class TestApplication(TestCase):
             mock.call(source1, message1),
             mock.call(source2, message2)
         ])
+        source.close.assert_called()
         self.app._wait_scheduled_forwarding_tasks.assert_called()
         self.app._sink.close.assert_called()
 
