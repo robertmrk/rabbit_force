@@ -1,12 +1,12 @@
 """Factory functions for creating objects from the configuration"""
 from aiosfstream import ReplayOption
-import aioamqp
 
 from .source.message_source import SalesforceOrgMessageSource, \
     MultiMessageSource, RedisReplayStorage
 from .source.salesforce import SalesforceOrg
-from .sink.message_sink import AmqpMessageSink, MultiMessageSink
+from .sink.message_sink import AmqpBrokerMessageSink, MultiMessageSink
 from .routing import Route, RoutingRule, RoutingCondition, MessageRouter
+from .amqp_broker import AmqpBroker
 
 
 async def create_salesforce_org(*, consumer_key, consumer_secret, username,
@@ -43,8 +43,52 @@ async def create_salesforce_org(*, consumer_key, consumer_secret, username,
     return org
 
 
+async def create_replay_storage(*, replay_spec, source_name,
+                                ignore_network_errors=False, loop=None):
+    """Create a replay marker storage object for the given *source_name*
+    based on the *replay_spec*
+
+    :param replay_spec: Replay storage specification that can be passed \
+    to :obj:`RedisReplayStorage` to create a replay marker storage object
+    :type replay_spec: dict or None
+    :param str source_name: Name of the message source
+    :param bool ignore_network_errors: If True then no exceptions will \
+    be raised in case of a network error occurs in the replay marker storage \
+    object
+    :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
+                 schedule tasks. If *loop* is ``None`` then
+                 :func:`asyncio.get_event_loop` is used to get the default
+                 event loop.
+    :return:
+    """
+    replay_marker_storage = None
+    replay_fallback = None
+
+    # if the replay storage is defined
+    if replay_spec:
+        # append the value of the source_name to the key prefix
+        if replay_spec.get("key_prefix"):
+            replay_spec["key_prefix"] += ":" + source_name
+        else:
+            replay_spec["key_prefix"] = source_name
+
+        # create the replay storage from the specification and use
+        # ReplayOption.ALL_EVENTS as the replay fallback
+        replay_marker_storage = RedisReplayStorage(
+            **replay_spec,
+            ignore_network_errors=ignore_network_errors,
+            loop=loop)
+        replay_fallback = ReplayOption.ALL_EVENTS
+
+    return replay_marker_storage, replay_fallback
+
+
 async def create_message_source(*, org_specs, replay_spec=None,
-                                org_factory=create_salesforce_org, loop=None):
+                                org_factory=create_salesforce_org,
+                                replay_storage_factory=create_replay_storage,
+                                ignore_replay_storage_errors=False,
+                                connection_timeout=10.0,
+                                loop=None):
     """Create a message source that wraps the salesforce org defined by
     *org_specs*
 
@@ -55,6 +99,15 @@ async def create_message_source(*, org_specs, replay_spec=None,
     :type replay_spec: dict or None
     :param callable org_factory: A callable capable of creating a Salesforce \
     org from the items of *org_specs*
+    :param callable replay_storage_factory: A callable capable of creating a \
+    replay marker storage object from the *replay_spec*
+    :param bool ignore_replay_storage_errors: If True then no exceptions will \
+    be raised in case of a network error occurs in the replay marker storage \
+    object
+    :param connection_timeout: The maximum amount of time to wait for the \
+    client to re-establish a connection with the server when the \
+    connection fails.
+    :type connection_timeout: int, float or None
     :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
                  schedule tasks. If *loop* is ``None`` then
                  :func:`asyncio.get_event_loop` is used to get the default
@@ -62,28 +115,26 @@ async def create_message_source(*, org_specs, replay_spec=None,
     :return: A message source object
     :rtype: ~source.message_source.MessageSource
     """
-    # initially assume that there is no replay storage defined and no
-    # replay_spec fallback is used
-    replay_marker_storage = None
-    replay_fallback = None
-
-    # if the replay storage is defined then create it from the specification
-    # and use ReplayOption.ALL_EVENTS as the replay_spec fallback
-    if replay_spec:
-        replay_marker_storage = RedisReplayStorage(**replay_spec, loop=loop)
-        replay_fallback = ReplayOption.ALL_EVENTS
-
     # create the specified Salesforce orgs identified by their names
     salesforce_orgs = {name: await org_factory(**spec)
                        for name, spec in org_specs.items()}
 
     # create message sources for every Salesforce org object and use the
     # specified replay_spec marker storage and replay_spec fallback values
-    message_sources = [SalesforceOrgMessageSource(name, org,
-                                                  replay_marker_storage,
-                                                  replay_fallback,
-                                                  loop=loop)
-                       for name, org in salesforce_orgs.items()]
+    message_sources = []
+    for name, org in salesforce_orgs.items():
+        replay_marker_storage, replay_fallback = await replay_storage_factory(
+            replay_spec=replay_spec,
+            source_name=name,
+            ignore_network_errors=ignore_replay_storage_errors,
+            loop=loop
+        )
+        source = SalesforceOrgMessageSource(name, org,
+                                            replay_marker_storage,
+                                            replay_fallback,
+                                            connection_timeout,
+                                            loop=loop)
+        message_sources.append(source)
 
     # if there is only a single org specified, then return the message source
     # that wraps it
@@ -118,27 +169,25 @@ async def create_broker(*, host, exchange_specs, port=None, login='guest',
                  schedule tasks. If *loop* is ``None`` then
                  :func:`asyncio.get_event_loop` is used to get the default
                  event loop.
-    :return: a tuple (transport, protocol) of an AmqpProtocol instance
-    :rtype: tuple[asyncio.BaseTransport, aioamqp.protocol.AmqpProtocol]
+    :return: An AMQP broker instance
+    :rtype: AmqpBroker
     """
-    # connect to the broker and create the transport and protocol objects
-    transport, protocol = await aioamqp.connect(host, port, login, password,
-                                                virtualhost, ssl, login_method,
-                                                insist, verify_ssl=verify_ssl,
-                                                loop=loop)
+    # create a broker object
+    broker = AmqpBroker(host, port=port, login=login, password=password,
+                        virtualhost=virtualhost, ssl=ssl,
+                        login_method=login_method, insist=insist,
+                        verify_ssl=verify_ssl, loop=loop)
 
-    # create a channel and declare the exchanges
-    channel = await protocol.channel()
+    # declare the exchanges
     for spec in exchange_specs:
-        await channel.exchange_declare(**spec)
+        await broker.exchange_declare(**spec)
 
-    # return the connections transport and protocol
-    return transport, protocol
+    return broker
 
 
 async def create_message_sink(*, broker_specs,
                               broker_factory=create_broker,
-                              broker_sink_factory=AmqpMessageSink,
+                              broker_sink_factory=AmqpBrokerMessageSink,
                               loop=None):
     """Create a message sink that wraps the brokers defined by
     *broker_specs*
@@ -160,7 +209,7 @@ async def create_message_sink(*, broker_specs,
                for name, params in broker_specs.items()}
 
     # create message sink for every broker object
-    message_sinks = {name: broker_sink_factory(*broker)
+    message_sinks = {name: broker_sink_factory(broker)
                      for name, broker in brokers.items()}
 
     # group the message sink objects into a multi message sink object

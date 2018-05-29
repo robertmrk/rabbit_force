@@ -18,7 +18,7 @@ Exception hierarchy::
                     SalesforceMethodNotAllowedError
                     SalesforceUnsupportedMediaTypeError
                     SalesforceInternalServerError
-                StreamingError
+        MessageSourceError
 """
 
 
@@ -88,8 +88,8 @@ class SalesforceInternalServerError(SalesforceRestError):
     couldn’t be completed"""
 
 
-class StreamingError(SalesforceError):
-    """Salesforce streaming error"""
+class MessageSourceError(RabbitForceError):
+    """Message source related error"""
 
 
 class InvalidOperation(RabbitForceError):
@@ -98,3 +98,15 @@ class InvalidOperation(RabbitForceError):
 
 class InvalidRoutingConditionError(RabbitForceError):
     """Failed to parse routing condition"""
+
+
+class MessageSinkError(RabbitForceError):
+    """Message sink related error"""
+
+
+class ConfigurationError(RabbitForceError):
+    """Application configuration error"""
+
+
+class ReplayStorageError(RabbitForceError):
+    """Replay storage error"""

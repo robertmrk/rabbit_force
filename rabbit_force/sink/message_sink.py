@@ -3,6 +3,8 @@ import asyncio
 from abc import ABC, abstractmethod
 import json
 
+from ..exceptions import MessageSinkError, NetworkError
+
 
 class MessageSink(ABC):
     """Abstract message sink base class
@@ -34,34 +36,22 @@ class MessageSink(ABC):
         """Close the message sink"""
 
 
-class AmqpMessageSink(MessageSink):
+class AmqpBrokerMessageSink(MessageSink):
     """Message sink for publishing the consumed messages with AMQP"""
 
     ENCODING = "utf-8"
     CONTENT_TYPE = "application/json"
 
-    def __init__(self, transport, protocol, json_dumps=json.dumps):
+    def __init__(self, broker, json_dumps=json.dumps):
         """
-        :param asyncio.BaseTransport transport: A transport object
-        :param aioamqp.AmqpProtocol protocol: AMQP protocol object
+        :param AmqpBroker broker: An amqp message broker object
         :param json_dumps: Function for JSON serialization, the default is \
         :func:`json.dumps`
         :type json_dumps: :func:`callable`
         """
-        self.transport = transport
-        self.protocol = protocol
+        self.broker = broker
         self.channel = None
         self._json_dumps = json_dumps
-
-    async def _get_channel(self):
-        """Get an open channel object
-
-        :return: A channel object
-        :rtype: aioamqp.Channel
-        """
-        if self.channel is None:
-            self.channel = await self.protocol.channel()
-        return self.channel
 
     # pylint: disable=too-many-arguments
     async def consume_message(self, message, sink_name, exchange_name,
@@ -73,15 +63,13 @@ class AmqpMessageSink(MessageSink):
         properties["content_type"] = self.CONTENT_TYPE
         properties["content_encoding"] = self.ENCODING
 
-        channel = await self._get_channel()
-        await channel.publish(serialized_message, exchange_name,
-                              routing_key, properties=properties)
+        await self.broker.publish(serialized_message, exchange_name,
+                                  routing_key, properties=properties)
 
     # pylint: enable=too-many-arguments
 
     async def close(self):
-        await self.protocol.close()
-        self.transport.close()
+        await self.broker.close()
 
 
 class MultiMessageSink(MessageSink):
@@ -104,9 +92,16 @@ class MultiMessageSink(MessageSink):
 
     async def consume_message(self, message, sink_name, exchange_name,
                               routing_key, properties=None):
-        sink = self.sinks[sink_name]
-        await sink.consume_message(message, sink_name, exchange_name,
-                                   routing_key, properties)
+        try:
+            sink = self.sinks[sink_name]
+        except KeyError as error:
+            raise MessageSinkError(f"Sink named {sink_name!r} "
+                                   f"doesn't exists") from error
+        try:
+            await sink.consume_message(message, sink_name, exchange_name,
+                                       routing_key, properties)
+        except NetworkError as error:
+            raise MessageSinkError(f"Network error: {error!s}") from error
 
     # pylint: enable=too-many-arguments
 
