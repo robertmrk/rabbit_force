@@ -2,8 +2,12 @@
 import asyncio
 from abc import ABC, abstractmethod
 import json
+import logging
 
 from ..exceptions import MessageSinkError, NetworkError
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class MessageSink(ABC):
@@ -48,10 +52,13 @@ class AmqpBrokerMessageSink(MessageSink):
         :param json_dumps: Function for JSON serialization, the default is \
         :func:`json.dumps`
         :type json_dumps: :func:`callable`
+        :raise NetworkError: If a network related error occurs
         """
         self.broker = broker
         self.channel = None
         self._json_dumps = json_dumps
+
+        LOGGER.info("Using message broker %r", self.broker)
 
     # pylint: disable=too-many-arguments
     async def consume_message(self, message, sink_name, exchange_name,
@@ -101,7 +108,7 @@ class MultiMessageSink(MessageSink):
             await sink.consume_message(message, sink_name, exchange_name,
                                        routing_key, properties)
         except NetworkError as error:
-            raise MessageSinkError(f"Network error: {error!s}") from error
+            raise MessageSinkError(str(error)) from error
 
     # pylint: enable=too-many-arguments
 

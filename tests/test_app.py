@@ -57,7 +57,8 @@ class TestApplication(TestCase):
             "router": {"key3": "value3"}
         }
 
-        await self.app._configure()
+        with self.assertLogs("rabbit_force.app", "INFO") as log:
+            await self.app._configure()
 
         create_message_source.assert_called_with(
             **self.app.config["source"],
@@ -71,6 +72,9 @@ class TestApplication(TestCase):
         )
         create_router.assert_called_with(**self.app.config["router"])
         self.assertTrue(self.app._configured)
+        self.assertEqual(log.output, [
+            "INFO:rabbit_force.app:Configuring application ..."
+        ])
 
     @mock.patch("rabbit_force.app.asyncio")
     async def test_schedule_message_forwarding(self, asyncio_mod):
@@ -166,8 +170,8 @@ class TestApplication(TestCase):
             self.app._forward_message_done(future)
 
         self.assertEqual(log.output, [
-            f"INFO:rabbit_force.app:Message {replay_id!r} on channel "
-            f"{channel!r} from {source_name!r} forwarded to {route!r}."
+            f"INFO:rabbit_force.app:Forwarded message {replay_id!r} on "
+            f"channel {channel!r} from {source_name!r} to {route!r}."
         ])
         self.assertFalse(self.app._forwarding_tasks)
 
@@ -189,9 +193,8 @@ class TestApplication(TestCase):
             self.app._forward_message_done(future)
 
         self.assertEqual(log.output, [
-            f"WARNING:rabbit_force.app:No route found for message "
-            f"{replay_id!r} on channel {channel!r} from {source_name!r}, "
-            f"message dropped."
+            f"WARNING:rabbit_force.app:Dropped message {replay_id!s} on "
+            f"channel {channel!r} from {source_name!r}, no route found."
         ])
         self.assertFalse(self.app._forwarding_tasks)
 
@@ -230,9 +233,10 @@ class TestApplication(TestCase):
         with self.assertLogs("rabbit_force.app", "DEBUG") as log:
             self.app._forward_message_done(future)
 
-        self.assertTrue(log.output[0].startswith(
-            f"ERROR:rabbit_force.app:Failed to forward message. {error!s}"
-        ))
+        self.assertEqual(log.output, [
+            f"ERROR:rabbit_force.app:Dropped message {replay_id!s} on channel "
+            f"{channel!r} from {source_name!r}. {error!s}"
+        ])
         self.assertFalse(self.app._forwarding_tasks)
 
     def test_forward_message_done_on_sink_error_not_ignored(self):
@@ -333,7 +337,8 @@ class TestApplication(TestCase):
         self.app._sink = mock.MagicMock()
         self.app._sink.close = mock.CoroutineMock()
 
-        await self.app._listen_for_messages()
+        with self.assertLogs("rabbit_force.app", "INFO") as log:
+            await self.app._listen_for_messages()
 
         source.open.assert_called()
         self.assertEqual(self.app._schedule_message_forwarding.mock_calls, [
@@ -343,3 +348,6 @@ class TestApplication(TestCase):
         source.close.assert_called()
         self.app._wait_scheduled_forwarding_tasks.assert_called()
         self.app._sink.close.assert_called()
+        self.assertEqual(log.output, [
+            "INFO:rabbit_force.app:Shutting down ..."
+        ])

@@ -96,6 +96,8 @@ class Application:
 
     async def _configure(self):
         """Create and configure collaborator objects"""
+        LOGGER.info("Configuring application ...")
+
         self._source = await create_message_source(
             **self.config["source"],
             ignore_replay_storage_errors=self.ignore_replay_storage_errors,
@@ -136,6 +138,7 @@ class Application:
                 # consume pending messages until there is no more left
                 except asyncio.CancelledError:
                     await self._source.close()
+                    LOGGER.info("Shutting down ...")
 
         finally:
             # close the source in case it wasn't closed in the inner loop
@@ -214,16 +217,17 @@ class Application:
             route = future.result()
 
             if route:
-                LOGGER.info("Message %r on channel %r "
-                            "from %r forwarded to %r.",
+                LOGGER.info("Forwarded message %r on channel %r "
+                            "from %r to %r.",
                             replay_id, channel, source_name, route)
             else:
-                LOGGER.warning("No route found for message "
-                               "%r on channel %r from %r, message dropped.",
+                LOGGER.warning("Dropped message %r on channel %r from %r, "
+                               "no route found.",
                                replay_id, channel, source_name)
         except MessageSinkError as error:
             if self.ignore_sink_errors:
-                LOGGER.error("Failed to forward message. %s", str(error))
+                LOGGER.error("Dropped message %r on channel %r from %r. %s",
+                             replay_id, channel, source_name, str(error))
             else:
                 raise
 

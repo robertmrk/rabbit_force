@@ -12,9 +12,16 @@ class TestAmqpMessageSink(TestCase):
         self.sink = AmqpBrokerMessageSink(self.broker, self.json_dumps)
 
     def test_init(self):
-        self.assertIs(self.sink.broker, self.broker)
-        self.assertIs(self.sink._json_dumps, self.json_dumps)
-        self.assertIsNone(self.sink.channel)
+        with self.assertLogs("rabbit_force.sink.message_sink", "INFO") as log:
+            sink = AmqpBrokerMessageSink(self.broker, self.json_dumps)
+
+        self.assertIs(sink.broker, self.broker)
+        self.assertIs(sink._json_dumps, self.json_dumps)
+        self.assertIsNone(sink.channel)
+        self.assertEqual(log.output, [
+            f"INFO:rabbit_force.sink.message_sink:Using message broker "
+            f"{self.broker!r}"
+        ])
 
     async def test_consume_message(self):
         message = {"foo": "bar"}
@@ -139,8 +146,7 @@ class TestMultiMessageSink(TestCase):
             side_effect=error
         )
 
-        with self.assertRaisesRegex(MessageSinkError,
-                                    f"Network error: {error!s}"):
+        with self.assertRaisesRegex(MessageSinkError, str(error)):
             await self.sink.consume_message(message, sink_name, exchange_name,
                                             routing_key, properties)
 

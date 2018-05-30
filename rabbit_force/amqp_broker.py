@@ -1,4 +1,6 @@
 """AmqpBroker class definition"""
+import reprlib
+
 import aioamqp
 
 from .exceptions import NetworkError
@@ -44,6 +46,22 @@ class AmqpBroker:  # pylint: disable=too-many-instance-attributes
         self._transport = None
         self._protocol = None
         self._channel = None
+
+    def __repr__(self):
+        cls_name = type(self).__name__
+        fmt_spec = "{}(host={}, port={}, login={}, password={}, " \
+                   "virtualhost={}, ssl={}, login_method={}, insist={}, " \
+                   "verify_ssl={})"
+        return fmt_spec.format(cls_name,
+                               reprlib.repr(self.host),
+                               reprlib.repr(self.port),
+                               reprlib.repr(self.login),
+                               reprlib.repr(self.password),
+                               reprlib.repr(self.virtualhost),
+                               reprlib.repr(self.ssl),
+                               reprlib.repr(self.login_method),
+                               reprlib.repr(self.insist),
+                               reprlib.repr(self.verify_ssl))
 
     async def _get_channel(self):
         """Creates a new AMQP channel or returns an existing one if it's open
@@ -105,7 +123,8 @@ class AmqpBroker:  # pylint: disable=too-many-instance-attributes
                                            durable, auto_delete, no_wait,
                                            arguments)
         except ConnectionError as error:
-            raise NetworkError(str(error)) from error
+            raise NetworkError(f"Network error during declaring exchange with "
+                               f"{self!r}. {error!s}") from error
 
     # pylint: enable=too-many-arguments
 
@@ -129,7 +148,8 @@ class AmqpBroker:  # pylint: disable=too-many-instance-attributes
             await channel.publish(payload, exchange_name, routing_key,
                                   properties)
         except ConnectionError as error:
-            raise NetworkError(str(error)) from error
+            raise NetworkError(f"Network error during publishing message with "
+                               f"{self!r}. {error!s}") from error
 
     async def close(self):
         """Close the broker object"""

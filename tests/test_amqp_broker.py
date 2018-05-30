@@ -1,3 +1,5 @@
+import reprlib
+
 from asynctest import TestCase, mock
 
 from rabbit_force.amqp_broker import AmqpBroker
@@ -43,6 +45,25 @@ class TestAmqpBroker(TestCase):
         self.assertIsNone(self.broker._transport)
         self.assertIsNone(self.broker._protocol)
         self.assertIsNone(self.broker._channel)
+
+    def test_repr(self):
+        result = repr(self.broker)
+
+        cls_name = type(self.broker).__name__
+        fmt_spec = "{}(host={}, port={}, login={}, password={}, " \
+                   "virtualhost={}, ssl={}, login_method={}, insist={}, " \
+                   "verify_ssl={})"
+        expected_rexult = fmt_spec.format(cls_name,
+                                          reprlib.repr(self.host),
+                                          reprlib.repr(self.port),
+                                          reprlib.repr(self.login),
+                                          reprlib.repr(self.password),
+                                          reprlib.repr(self.virtualhost),
+                                          reprlib.repr(self.ssl),
+                                          reprlib.repr(self.login_method),
+                                          reprlib.repr(self.insist),
+                                          reprlib.repr(self.verify_ssl))
+        self.assertEqual(result, expected_rexult)
 
     @mock.patch("rabbit_force.amqp_broker.aioamqp")
     async def test_get_channel_creates_channel(self, aioamqp_mod):
