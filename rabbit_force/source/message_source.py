@@ -120,12 +120,14 @@ class SalesforceOrgMessageSource(MessageSource):
             await self.client.subscribe(resource.channel_name)
 
     async def close(self):
-        # close the streaming client
-        await self.client.close()
-        # remove non durable resources
-        await self.salesforce_org.cleanup_resources()
-        # close the org
-        await self.salesforce_org.close()
+        # don't close if already closed
+        if not self.closed:
+            # close the streaming client
+            await self.client.close()
+            # remove non durable resources
+            await self.salesforce_org.cleanup_resources()
+            # close the org
+            await self.salesforce_org.close()
 
     async def get_message(self):
         try:

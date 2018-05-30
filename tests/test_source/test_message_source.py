@@ -65,6 +65,7 @@ class TestSalesforceOrgMessageSource(TestCase):
         self.client.subscribe.assert_called_with(resource.channel_name)
 
     async def test_close(self):
+        self.client.closed = False
         self.client.close = mock.CoroutineMock()
         self.org.cleanup_resources = mock.CoroutineMock()
         self.org.close = mock.CoroutineMock()
@@ -74,6 +75,18 @@ class TestSalesforceOrgMessageSource(TestCase):
         self.client.close.assert_called()
         self.org.cleanup_resources.assert_called()
         self.org.close.assert_called()
+
+    async def test_close_if_already_closed(self):
+        self.client.closed = True
+        self.client.close = mock.CoroutineMock()
+        self.org.cleanup_resources = mock.CoroutineMock()
+        self.org.close = mock.CoroutineMock()
+
+        await self.source.close()
+
+        self.client.close.assert_not_called()
+        self.org.cleanup_resources.assert_not_called()
+        self.org.close.assert_not_called()
 
     async def test_get_message(self):
         message = object()
