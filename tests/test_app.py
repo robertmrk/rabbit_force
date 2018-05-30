@@ -3,7 +3,7 @@ import signal
 
 from asynctest import TestCase, mock
 
-from rabbit_force.app import Application
+from rabbit_force.app import Application, SourceMessagePair
 from rabbit_force.routing import Route
 from rabbit_force.exceptions import MessageSinkError
 
@@ -34,7 +34,7 @@ class TestApplication(TestCase):
         self.assertIsNone(self.app._sink)
         self.assertIsNone(self.app._router)
         self.assertFalse(self.app._configured)
-        self.assertEqual(self.app._forwarding_tasks, set())
+        self.assertEqual(self.app._forwarding_tasks, {})
         self.assertIs(self.app._loop, self.loop)
 
     async def test__run(self):
@@ -89,12 +89,13 @@ class TestApplication(TestCase):
         task.add_done_callback.assert_called_with(
             self.app._forward_message_done
         )
-        self.assertEqual(self.app._forwarding_tasks, {task})
+        self.assertEqual(self.app._forwarding_tasks,
+                         {task: SourceMessagePair(source_name, message)})
 
     @mock.patch("rabbit_force.app.asyncio")
     async def test_wait_scheduled_forwarding_tasks(self, asyncio_mod):
         self.app._loop = self.loop
-        self.app._forwarding_tasks = {object()}
+        self.app._forwarding_tasks = {object(): object()}
         asyncio_mod.wait = mock.CoroutineMock()
 
         await self.app._wait_scheduled_forwarding_tasks()
@@ -106,7 +107,7 @@ class TestApplication(TestCase):
     async def test_wait_scheduled_forwarding_tasks_without_tasks(self,
                                                                  asyncio_mod):
         self.app._loop = self.loop
-        self.app._forwarding_tasks = set()
+        self.app._forwarding_tasks = {}
         asyncio_mod.wait = mock.CoroutineMock()
 
         await self.app._wait_scheduled_forwarding_tasks()
@@ -125,9 +126,7 @@ class TestApplication(TestCase):
 
         result = await self.app._forward_message(source_name, message)
 
-        self.assertEqual(result[0], message)
-        self.assertEqual(result[1], source_name)
-        self.assertEqual(result[2], route)
+        self.assertEqual(result, route)
         self.app._router.find_route.assert_called_with(source_name, message)
         self.app._sink.consume_message.assert_called_with(
             message, route.broker_name, route.exchange_name, route.routing_key,
@@ -145,9 +144,7 @@ class TestApplication(TestCase):
 
         result = await self.app._forward_message(source_name, message)
 
-        self.assertEqual(result[0], message)
-        self.assertEqual(result[1], source_name)
-        self.assertIsNone(result[2])
+        self.assertEqual(result, route)
         self.app._router.find_route.assert_called_with(source_name, message)
         self.app._sink.consume_message.assert_not_called()
 
@@ -161,8 +158,9 @@ class TestApplication(TestCase):
         }
         source_name = "source"
         route = object()
-        future.result.return_value = (message, source_name, route)
-        self.app._forwarding_tasks = {future}
+        future.result.return_value = route
+        self.app._forwarding_tasks = {future: SourceMessagePair(source_name,
+                                                                message)}
 
         with self.assertLogs("rabbit_force.app", "DEBUG") as log:
             self.app._forward_message_done(future)
@@ -183,8 +181,9 @@ class TestApplication(TestCase):
         }
         source_name = "source"
         route = None
-        future.result.return_value = (message, source_name, route)
-        self.app._forwarding_tasks = {future}
+        future.result.return_value = route
+        self.app._forwarding_tasks = {future: SourceMessagePair(source_name,
+                                                                message)}
 
         with self.assertLogs("rabbit_force.app", "DEBUG") as log:
             self.app._forward_message_done(future)
@@ -198,22 +197,35 @@ class TestApplication(TestCase):
 
     def test_forward_message_done_on_error(self):
         future = mock.MagicMock()
+        replay_id = 12
+        channel = "channel"
+        message = {
+            "channel": channel,
+            "data": {"event": {"replayId": replay_id}}
+        }
+        source_name = "source"
         future.result.side_effect = TypeError()
-        self.app._forwarding_tasks = {future}
+        self.app._forwarding_tasks = {future: SourceMessagePair(source_name,
+                                                                message)}
 
-        with self.assertLogs("rabbit_force.app", "DEBUG") as log:
+        with self.assertRaises(TypeError):
             self.app._forward_message_done(future)
 
-        self.assertTrue(log.output[0].startswith(
-            "ERROR:rabbit_force.app:Failed to forward message."
-        ))
         self.assertFalse(self.app._forwarding_tasks)
 
     def test_forward_message_done_on_sink_error(self):
         future = mock.MagicMock()
+        replay_id = 12
+        channel = "channel"
+        message = {
+            "channel": channel,
+            "data": {"event": {"replayId": replay_id}}
+        }
+        source_name = "source"
         error = MessageSinkError("message")
         future.result.side_effect = error
-        self.app._forwarding_tasks = {future}
+        self.app._forwarding_tasks = {future: SourceMessagePair(source_name,
+                                                                message)}
 
         with self.assertLogs("rabbit_force.app", "DEBUG") as log:
             self.app._forward_message_done(future)
@@ -226,9 +238,17 @@ class TestApplication(TestCase):
     def test_forward_message_done_on_sink_error_not_ignored(self):
         self.app.ignore_sink_errors = False
         future = mock.MagicMock()
+        replay_id = 12
+        channel = "channel"
+        message = {
+            "channel": channel,
+            "data": {"event": {"replayId": replay_id}}
+        }
+        source_name = "source"
         error = MessageSinkError("message")
         future.result.side_effect = error
-        self.app._forwarding_tasks = {future}
+        self.app._forwarding_tasks = {future: SourceMessagePair(source_name,
+                                                                message)}
 
         with self.assertRaisesRegex(MessageSinkError, str(error)):
             self.app._forward_message_done(future)

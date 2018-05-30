@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import signal
+from collections import namedtuple
 
 import uvloop
 
@@ -11,6 +12,7 @@ from .exceptions import MessageSinkError
 
 
 LOGGER = logging.getLogger(__name__)
+SourceMessagePair = namedtuple("SourceMessagePair", ["source_name", "message"])
 
 # pylint: disable=too-few-public-methods, too-many-instance-attributes
 
@@ -53,8 +55,8 @@ class Application:
         self._sink = None
         #: A message router object
         self._router = None
-        #: The set of currently running message forwarding tasks
-        self._forwarding_tasks = set()
+        #: The currently running message forwarding tasks
+        self._forwarding_tasks = {}
         #: Event loop
         self._loop = None
 
@@ -149,7 +151,7 @@ class Application:
 
     async def _schedule_message_forwarding(self, source_name, message):
         """Create a task for forwarding the *message* from *source_name* and
-        add it to the list of active forwarding tasks
+        add it to the map of active forwarding tasks
 
         :param str source_name: Name of the message source
         :param dict message: A message
@@ -161,8 +163,9 @@ class Application:
         )
         # set a callback to consume the tasks result
         forwarding_task.add_done_callback(self._forward_message_done)
-        # add the task to the set of running tasks
-        self._forwarding_tasks.add(forwarding_task)
+        # add the task and message to the map of running tasks
+        self._forwarding_tasks[forwarding_task] = \
+            SourceMessagePair(source_name, message)
 
     async def _wait_scheduled_forwarding_tasks(self):
         """Wait for all the active forwarding tasks to complete"""
@@ -176,9 +179,9 @@ class Application:
 
         :param str source_name: Name of the message source
         :param dict message: A message
-        :return: A three element tuple which contains the forwarded message, \
-        name of the message source and the routing parameters
-        :rtype: tuple[dict, str, Route]
+        :return: The routing parameters used to forward the message or None \
+        if no suitable route was found
+        :rtype: Route or None
         """
         # find a matching route for the message
         route = self._router.find_route(source_name, message)
@@ -193,19 +196,22 @@ class Application:
                                              route.properties)
 
         # return the message, source_name and the routing parameters
-        return message, source_name, route
+        return route
 
     def _forward_message_done(self, future):
         """Consume the result of a completed message forwarding task
 
         :param asyncio.Future future: A future object
         """
-        self._forwarding_tasks.remove(future)
+        # remove task from the map of running tasks
+        source_message_pair = self._forwarding_tasks.pop(future)
+        # extract message and source information
+        source_name = source_message_pair.source_name
+        channel = source_message_pair.message["channel"]
+        replay_id = source_message_pair.message["data"]["event"]["replayId"]
 
         try:
-            message, source_name, route = future.result()
-            channel = message["channel"]
-            replay_id = message["data"]["event"]["replayId"]
+            route = future.result()
 
             if route:
                 LOGGER.info("Message %r on channel %r "
@@ -220,7 +226,5 @@ class Application:
                 LOGGER.error("Failed to forward message. %s", str(error))
             else:
                 raise
-        except Exception:  # pylint: disable=broad-except
-            LOGGER.exception("Failed to forward message.")
 
 # pylint: enable=too-few-public-methods, too-many-instance-attributes
