@@ -195,8 +195,20 @@ class TestAmqpBroker(TestCase):
         self.broker.transport = mock.MagicMock()
         self.broker.protocol = mock.MagicMock()
         self.broker.protocol.close = mock.CoroutineMock()
+        self.broker.protocol.connection_closed.is_set.return_value = False
 
         await self.broker.close()
 
         self.broker.transport.close.assert_called()
         self.broker.protocol.close.assert_called()
+
+    async def test_close_if_already_closed(self):
+        self.broker.transport = mock.MagicMock()
+        self.broker.protocol = mock.MagicMock()
+        self.broker.protocol.close = mock.CoroutineMock()
+        self.broker.protocol.connection_closed.is_set.return_value = True
+
+        await self.broker.close()
+
+        self.broker.transport.close.assert_not_called()
+        self.broker.protocol.close.assert_not_called()

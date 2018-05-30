@@ -133,5 +133,8 @@ class AmqpBroker:  # pylint: disable=too-many-instance-attributes
 
     async def close(self):
         """Close the broker object"""
-        await self.protocol.close()
-        self.transport.close()
+        # don't close the transport and protocol if the protocol is already
+        # closed
+        if not self.protocol.connection_closed.is_set():
+            await self.protocol.close()
+            self.transport.close()
