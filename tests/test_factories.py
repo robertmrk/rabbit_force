@@ -297,7 +297,7 @@ class TestCreateReplayStorage(TestCase):
             loop=self.loop
         )
 
-        self.assertIsNone(result[0])
+        self.assertEqual(result[0], ReplayOption.NEW_EVENTS)
         self.assertIsNone(result[1])
 
     @mock.patch("rabbit_force.factories.RedisReplayStorage")

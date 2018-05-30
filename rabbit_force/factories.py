@@ -61,7 +61,7 @@ async def create_replay_storage(*, replay_spec, source_name,
                  event loop.
     :return:
     """
-    replay_marker_storage = None
+    replay_marker_storage = ReplayOption.NEW_EVENTS
     replay_fallback = None
 
     # if the replay storage is defined
