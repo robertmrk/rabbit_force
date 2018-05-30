@@ -40,10 +40,10 @@ class AmqpBroker:  # pylint: disable=too-many-instance-attributes
         self.login_method = login_method
         self.insist = insist
         self.verify_ssl = verify_ssl
-        self.loop = loop
-        self.transport = None
-        self.protocol = None
-        self.channel = None
+        self._loop = loop
+        self._transport = None
+        self._protocol = None
+        self._channel = None
 
     async def _get_channel(self):
         """Creates a new AMQP channel or returns an existing one if it's open
@@ -53,10 +53,10 @@ class AmqpBroker:  # pylint: disable=too-many-instance-attributes
         :raise ConnectionError: If a network connection error occurs
         """
         # if there is no channel object yet or if it's closed
-        if self.channel is None or not self.channel.is_open:
+        if self._channel is None or not self._channel.is_open:
             # create new transport and protocol objects by connectin to the
             # broker
-            self.transport, self.protocol = await aioamqp.connect(
+            self._transport, self._protocol = await aioamqp.connect(
                 self.host,
                 port=self.port,
                 login=self.login,
@@ -66,13 +66,13 @@ class AmqpBroker:  # pylint: disable=too-many-instance-attributes
                 login_method=self.login_method,
                 insist=self.insist,
                 verify_ssl=self.verify_ssl,
-                loop=self.loop
+                loop=self._loop
             )
             # create a new channel object
-            self.channel = await self.protocol.channel()
+            self._channel = await self._protocol.channel()
 
         # return the existing channel object
-        return self.channel
+        return self._channel
 
     # pylint: disable=too-many-arguments
 
@@ -135,6 +135,6 @@ class AmqpBroker:  # pylint: disable=too-many-instance-attributes
         """Close the broker object"""
         # don't close the transport and protocol if the protocol is already
         # closed
-        if not self.protocol.connection_closed.is_set():
-            await self.protocol.close()
-            self.transport.close()
+        if not self._protocol.connection_closed.is_set():
+            await self._protocol.close()
+            self._transport.close()

@@ -39,10 +39,10 @@ class TestAmqpBroker(TestCase):
         self.assertIs(self.broker.login_method, self.login_method)
         self.assertIs(self.broker.insist, self.insist)
         self.assertIs(self.broker.verify_ssl, self.verify_ssl)
-        self.assertIs(self.broker.loop, self.loop)
-        self.assertIsNone(self.broker.transport)
-        self.assertIsNone(self.broker.protocol)
-        self.assertIsNone(self.broker.channel)
+        self.assertIs(self.broker._loop, self.loop)
+        self.assertIsNone(self.broker._transport)
+        self.assertIsNone(self.broker._protocol)
+        self.assertIsNone(self.broker._channel)
 
     @mock.patch("rabbit_force.amqp_broker.aioamqp")
     async def test_get_channel_creates_channel(self, aioamqp_mod):
@@ -56,9 +56,9 @@ class TestAmqpBroker(TestCase):
         result = await self.broker._get_channel()
 
         self.assertIs(result, channel)
-        self.assertIs(self.broker.transport, transport)
-        self.assertIs(self.broker.protocol, protocol)
-        self.assertIs(self.broker.channel, channel)
+        self.assertIs(self.broker._transport, transport)
+        self.assertIs(self.broker._protocol, protocol)
+        self.assertIs(self.broker._channel, channel)
         aioamqp_mod.connect.assert_called_with(
             self.host,
             port=self.port,
@@ -74,10 +74,10 @@ class TestAmqpBroker(TestCase):
 
     @mock.patch("rabbit_force.amqp_broker.aioamqp")
     async def test_get_channel_creates_channel_if_closed(self, aioamqp_mod):
-        self.broker.channel = mock.MagicMock()
-        self.broker.channel.is_open = False
-        self.broker.transport = object()
-        self.broker.protocol = object()
+        self.broker._channel = mock.MagicMock()
+        self.broker._channel.is_open = False
+        self.broker._transport = object()
+        self.broker._protocol = object()
         transport = object()
         protocol = mock.MagicMock()
         aioamqp_mod.connect = mock.CoroutineMock(return_value=(transport,
@@ -88,9 +88,9 @@ class TestAmqpBroker(TestCase):
         result = await self.broker._get_channel()
 
         self.assertIs(result, channel)
-        self.assertIs(self.broker.transport, transport)
-        self.assertIs(self.broker.protocol, protocol)
-        self.assertIs(self.broker.channel, channel)
+        self.assertIs(self.broker._transport, transport)
+        self.assertIs(self.broker._protocol, protocol)
+        self.assertIs(self.broker._channel, channel)
         aioamqp_mod.connect.assert_called_with(
             self.host,
             port=self.port,
@@ -108,7 +108,7 @@ class TestAmqpBroker(TestCase):
     async def test_get_channel_returns_existing_channel(self, aioamqp_mod):
         channel = mock.MagicMock()
         channel.is_open = True
-        self.broker.channel = channel
+        self.broker._channel = channel
 
         result = await self.broker._get_channel()
 
@@ -192,23 +192,23 @@ class TestAmqpBroker(TestCase):
                                            properties)
 
     async def test_close(self):
-        self.broker.transport = mock.MagicMock()
-        self.broker.protocol = mock.MagicMock()
-        self.broker.protocol.close = mock.CoroutineMock()
-        self.broker.protocol.connection_closed.is_set.return_value = False
+        self.broker._transport = mock.MagicMock()
+        self.broker._protocol = mock.MagicMock()
+        self.broker._protocol.close = mock.CoroutineMock()
+        self.broker._protocol.connection_closed.is_set.return_value = False
 
         await self.broker.close()
 
-        self.broker.transport.close.assert_called()
-        self.broker.protocol.close.assert_called()
+        self.broker._transport.close.assert_called()
+        self.broker._protocol.close.assert_called()
 
     async def test_close_if_already_closed(self):
-        self.broker.transport = mock.MagicMock()
-        self.broker.protocol = mock.MagicMock()
-        self.broker.protocol.close = mock.CoroutineMock()
-        self.broker.protocol.connection_closed.is_set.return_value = True
+        self.broker._transport = mock.MagicMock()
+        self.broker._protocol = mock.MagicMock()
+        self.broker._protocol.close = mock.CoroutineMock()
+        self.broker._protocol.connection_closed.is_set.return_value = True
 
         await self.broker.close()
 
-        self.broker.transport.close.assert_not_called()
-        self.broker.protocol.close.assert_not_called()
+        self.broker._transport.close.assert_not_called()
+        self.broker._protocol.close.assert_not_called()
