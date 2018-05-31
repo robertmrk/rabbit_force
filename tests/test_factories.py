@@ -9,6 +9,7 @@ from rabbit_force.factories import create_salesforce_org, \
 class TestCreateSalesforceOrg(TestCase):
     @mock.patch("rabbit_force.factories.SalesforceOrg")
     async def test_create(self, org_cls):
+        name = "name"
         consumer_key = "key"
         consumer_secret = "secret"
         username = "username"
@@ -19,14 +20,16 @@ class TestCreateSalesforceOrg(TestCase):
         org_mock.add_resource = mock.CoroutineMock()
         org_cls.return_value = org_mock
 
-        result = await create_salesforce_org(
-            consumer_key=consumer_key,
-            consumer_secret=consumer_secret,
-            username=username,
-            password=password,
-            streaming_resource_specs=streaming_resource_specs,
-            loop=self.loop
-        )
+        with self.assertLogs("rabbit_force.factories", "DEBUG") as log:
+            result = await create_salesforce_org(
+                name=name,
+                consumer_key=consumer_key,
+                consumer_secret=consumer_secret,
+                username=username,
+                password=password,
+                streaming_resource_specs=streaming_resource_specs,
+                loop=self.loop
+            )
 
         self.assertIs(result, org_mock)
         org_cls.assert_called_with(
@@ -37,6 +40,11 @@ class TestCreateSalesforceOrg(TestCase):
             loop=self.loop
         )
         org_mock.add_resource.assert_called_with(**resource_spec)
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.factories:Creating Salesforce org {name!r}",
+            f"DEBUG:rabbit_force.factories:Adding resource to org {name!r}: "
+            f"{resource_spec!r}"
+        ])
 
 
 class TestCreateMessageSource(TestCase):
@@ -67,20 +75,21 @@ class TestCreateMessageSource(TestCase):
         ignore_replay_storage_errors = True
         connection_timeout = 20.0
 
-        result = await create_message_source(
-            org_specs=org_specs,
-            replay_spec=replay_spec,
-            org_factory=org_factory,
-            replay_storage_factory=replay_storage_factory,
-            ignore_replay_storage_errors=ignore_replay_storage_errors,
-            connection_timeout=connection_timeout,
-            loop=self.loop
-        )
+        with self.assertLogs("rabbit_force.factories", "DEBUG") as log:
+            result = await create_message_source(
+                org_specs=org_specs,
+                replay_spec=replay_spec,
+                org_factory=org_factory,
+                replay_storage_factory=replay_storage_factory,
+                ignore_replay_storage_errors=ignore_replay_storage_errors,
+                connection_timeout=connection_timeout,
+                loop=self.loop
+            )
 
         self.assertIs(result, multi_source_cls.return_value)
         org_factory.assert_has_calls([
-            mock.call(**org_specs["org_name1"]),
-            mock.call(**org_specs["org_name2"])
+            mock.call(**org_specs["org_name1"], name="org_name1"),
+            mock.call(**org_specs["org_name2"], name="org_name2")
         ])
         replay_storage_factory.assert_has_calls([
             mock.call(replay_spec=replay_spec,
@@ -102,6 +111,22 @@ class TestCreateMessageSource(TestCase):
         ])
         multi_source_cls.assert_called_with([org_source1, org_source2],
                                             loop=self.loop)
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.factories:Creating Salesforce orgs",
+            f"DEBUG:rabbit_force.factories:Creating message sources",
+            f"DEBUG:rabbit_force.factories:Creating replay storage for "
+            f"message source named 'org_name1'",
+            f"DEBUG:rabbit_force.factories:Creating message source named "
+            f"'org_name1' with replay storage {replay_storage1!r} and replay "
+            f"fallback {ReplayOption.ALL_EVENTS!r}",
+            f"DEBUG:rabbit_force.factories:Creating replay storage for "
+            f"message source named 'org_name2'",
+            f"DEBUG:rabbit_force.factories:Creating message source named "
+            f"'org_name2' with replay storage {replay_storage2!r} and replay "
+            f"fallback {ReplayOption.ALL_EVENTS!r}",
+            f"DEBUG:rabbit_force.factories:Multiple message sources are "
+            f"defined, creating a multi message source."
+        ])
 
     @mock.patch("rabbit_force.factories.MultiMessageSource")
     @mock.patch("rabbit_force.factories.SalesforceOrgMessageSource")
@@ -124,19 +149,20 @@ class TestCreateMessageSource(TestCase):
         ignore_replay_storage_errors = True
         connection_timeout = 20.0
 
-        result = await create_message_source(
-            org_specs=org_specs,
-            replay_spec=replay_spec,
-            org_factory=org_factory,
-            replay_storage_factory=replay_storage_factory,
-            ignore_replay_storage_errors=ignore_replay_storage_errors,
-            connection_timeout=connection_timeout,
-            loop=self.loop
-        )
+        with self.assertLogs("rabbit_force.factories", "DEBUG") as log:
+            result = await create_message_source(
+                org_specs=org_specs,
+                replay_spec=replay_spec,
+                org_factory=org_factory,
+                replay_storage_factory=replay_storage_factory,
+                ignore_replay_storage_errors=ignore_replay_storage_errors,
+                connection_timeout=connection_timeout,
+                loop=self.loop
+            )
 
         self.assertIs(result, org_source1)
         org_factory.assert_has_calls([
-            mock.call(**org_specs["org_name1"])
+            mock.call(**org_specs["org_name1"], name="org_name1")
         ])
         replay_storage_factory.assert_has_calls([
             mock.call(replay_spec=replay_spec,
@@ -150,11 +176,23 @@ class TestCreateMessageSource(TestCase):
                       loop=self.loop)
         ])
         multi_source_cls.assert_not_called()
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.factories:Creating Salesforce orgs",
+            f"DEBUG:rabbit_force.factories:Creating message sources",
+            f"DEBUG:rabbit_force.factories:Creating replay storage for "
+            f"message source named 'org_name1'",
+            f"DEBUG:rabbit_force.factories:Creating message source named "
+            f"'org_name1' with replay storage {replay_storage1!r} and replay "
+            f"fallback {ReplayOption.ALL_EVENTS!r}",
+            f"DEBUG:rabbit_force.factories:Only a single message source is "
+            f"defined, using it as the main message source."
+        ])
 
 
 class TestCreateBroker(TestCase):
     @mock.patch("rabbit_force.factories.AmqpBroker")
     async def test_create(self, broker_cls):
+        name = "name"
         host = "host"
         exchange_specs = [{"key": "value"}]
         port = 1234
@@ -169,19 +207,21 @@ class TestCreateBroker(TestCase):
         broker.exchange_declare = mock.CoroutineMock()
         broker_cls.return_value = broker
 
-        result = await create_broker(
-            host=host,
-            exchange_specs=exchange_specs,
-            port=port,
-            login=login,
-            password=password,
-            virtualhost=virtualhost,
-            ssl=ssl,
-            login_method=login_method,
-            insist=insist,
-            verify_ssl=verify_ssl,
-            loop=self.loop
-        )
+        with self.assertLogs("rabbit_force.factories", "DEBUG") as log:
+            result = await create_broker(
+                name=name,
+                host=host,
+                exchange_specs=exchange_specs,
+                port=port,
+                login=login,
+                password=password,
+                virtualhost=virtualhost,
+                ssl=ssl,
+                login_method=login_method,
+                insist=insist,
+                verify_ssl=verify_ssl,
+                loop=self.loop
+            )
 
         self.assertEqual(result, broker)
         broker_cls.assert_called_with(
@@ -190,6 +230,11 @@ class TestCreateBroker(TestCase):
             insist=insist, verify_ssl=verify_ssl, loop=self.loop
         )
         broker.exchange_declare.assert_called_with(**exchange_specs[0])
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.factories:Creating message broker {name!r}",
+            f"DEBUG:rabbit_force.factories:Declaring exchange in broker "
+            f"{name!r}: {exchange_specs[0]!r}"
+        ])
 
 
 class TestCreateMessageSink(TestCase):
@@ -205,20 +250,28 @@ class TestCreateMessageSink(TestCase):
         message_sink = object()
         broker_sink_factory = mock.MagicMock(return_value=message_sink)
 
-        result = await create_message_sink(
-            broker_specs=broker_specs,
-            broker_factory=broker_factory,
-            broker_sink_factory=broker_sink_factory,
-            loop=self.loop
-        )
+        with self.assertLogs("rabbit_force.factories", "DEBUG") as log:
+            result = await create_message_sink(
+                broker_specs=broker_specs,
+                broker_factory=broker_factory,
+                broker_sink_factory=broker_sink_factory,
+                loop=self.loop
+            )
 
         self.assertIs(result, multi_sink_cls.return_value)
         broker_factory.assert_called_with(**broker_specs["broker1"],
+                                          name="broker1",
                                           loop=self.loop)
         broker_sink_factory.assert_called_with(broker)
         multi_sink_cls.assert_called_with(
             {"broker1": message_sink}, loop=self.loop
         )
+        self.assertEqual(log.output, [
+            "DEBUG:rabbit_force.factories:Creating message brokers",
+            "DEBUG:rabbit_force.factories:Creating message sinks",
+            "DEBUG:rabbit_force.factories:Creating multi message sink as the "
+            "main message sink"
+        ])
 
 
 class TestCreateRule(TestCase):
@@ -229,18 +282,23 @@ class TestCreateRule(TestCase):
         condition_spec = object()
         route_spec = {"key": "value"}
 
-        result = create_rule(
-            condition_spec=condition_spec,
-            route_spec=route_spec,
-            condition_factory=condition_factory,
-            route_factory=route_factory
-        )
+        with self.assertLogs("rabbit_force.factories", "DEBUG") as log:
+            result = create_rule(
+                condition_spec=condition_spec,
+                route_spec=route_spec,
+                condition_factory=condition_factory,
+                route_factory=route_factory
+            )
 
         self.assertIs(result, rule_cls.return_value)
         condition_factory.assert_called_with(condition_spec)
         route_factory.assert_called_with(**route_spec)
         rule_cls.assert_called_with(condition_factory.return_value,
                                     route_factory.return_value)
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.factories:Creating routing rule with "
+            f"condition {condition_spec!r} and route {route_spec!r}"
+        ])
 
 
 class TestCreateRouter(TestCase):
@@ -252,18 +310,25 @@ class TestCreateRouter(TestCase):
         rule = {"rule_key": "rule_value"}
         rule_specs = [rule]
 
-        result = create_router(
-            default_route_spec=default_route_spec,
-            rule_specs=rule_specs,
-            route_factory=route_factory,
-            rule_factory=rule_factory
-        )
+        with self.assertLogs("rabbit_force.factories", "DEBUG") as log:
+            result = create_router(
+                default_route_spec=default_route_spec,
+                rule_specs=rule_specs,
+                route_factory=route_factory,
+                rule_factory=rule_factory
+            )
 
         self.assertIs(result, router_cls.return_value)
         route_factory.assert_called_with(**default_route_spec)
         rule_factory.assert_called_with(**rule)
         router_cls.assert_called_with(route_factory.return_value,
                                       [rule_factory.return_value])
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.factories:Creating default route: "
+            f"{default_route_spec!r}",
+            "DEBUG:rabbit_force.factories:Creating routing rules",
+            "DEBUG:rabbit_force.factories:Creating message router object"
+        ])
 
     @mock.patch("rabbit_force.factories.MessageRouter")
     def test_create_without_default_route(self, router_cls):
@@ -273,17 +338,23 @@ class TestCreateRouter(TestCase):
         rule = {"rule_key": "rule_value"}
         rule_specs = [rule]
 
-        result = create_router(
-            default_route_spec=default_route_spec,
-            rule_specs=rule_specs,
-            route_factory=route_factory,
-            rule_factory=rule_factory
-        )
+        with self.assertLogs("rabbit_force.factories", "DEBUG") as log:
+            result = create_router(
+                default_route_spec=default_route_spec,
+                rule_specs=rule_specs,
+                route_factory=route_factory,
+                rule_factory=rule_factory
+            )
 
         self.assertIs(result, router_cls.return_value)
         route_factory.assert_not_called()
         rule_factory.assert_called_with(**rule)
         router_cls.assert_called_with(None, [rule_factory.return_value])
+        self.assertEqual(log.output, [
+            "DEBUG:rabbit_force.factories:No default route is defined",
+            "DEBUG:rabbit_force.factories:Creating routing rules",
+            "DEBUG:rabbit_force.factories:Creating message router object"
+        ])
 
 
 class TestCreateReplayStorage(TestCase):

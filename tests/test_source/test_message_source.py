@@ -1,4 +1,5 @@
 import asyncio
+import reprlib
 
 from asynctest import TestCase, mock
 from aiosfstream.exceptions import ClientInvalidOperation, AiosfstreamException
@@ -58,11 +59,28 @@ class TestSalesforceOrgMessageSource(TestCase):
         self.client.open = mock.CoroutineMock()
         self.client.subscribe = mock.CoroutineMock()
         self.org.resources = {"resource": resource}
+        resource = mock.MagicMock()
+        resource.type_name.value = "type"
+        resource.name = "name"
+        resource.channel_name = "channel_name"
+        self.source.salesforce_org.resources = {resource.name: resource}
+        self.client.replay_storage = object()
 
-        await self.source.open()
+        with self.assertLogs("rabbit_force.source.message_source",
+                             "INFO") as log:
+            await self.source.open()
 
         self.client.open.assert_called()
         self.client.subscribe.assert_called_with(resource.channel_name)
+        log_lines = [f"\t* from {_.type_name.value!s} {_.name!r} "
+                     f"on channel {_.channel_name!r}"
+                     for _ in self.source.salesforce_org.resources.values()]
+        log_lines.append(f"With replay storage "
+                         f"{self.client.replay_storage!r}.")
+        expected_log = f"INFO:rabbit_force.source.message_source:" \
+                       f"Listening for messages from Salesforce org " \
+                       f"{self.name!r}: \n" + "\n".join(log_lines)
+        self.assertEqual(log.output, [expected_log])
 
     async def test_close(self):
         self.client.closed = False
@@ -111,7 +129,9 @@ class TestSalesforceOrgMessageSource(TestCase):
         self.client.receive = mock.CoroutineMock(side_effect=error)
 
         with self.assertRaisesRegex(MessageSourceError,
-                                    f"Message reception failure. {error!s}"):
+                                    f"Failed message reception from "
+                                    f"Salesforce org {self.source.name!r}. "
+                                    f"{error!s}"):
             await self.source.get_message()
 
         self.client.receive.assert_called()
@@ -231,6 +251,21 @@ class TestRedisReplayStorage(TestCase):
         self.assertEqual(self.replay._loop, self.loop)
         self.assertIsNone(self.replay._redis)
 
+    def test_repr(self):
+        result = repr(self.replay)
+
+        cls_name = type(self.replay).__name__
+        fmt_spec = "{}(address={}, key_prefix={}, additional_params={}, " \
+                   "ignore_network_errors={})"
+        expected_result = fmt_spec.format(
+            cls_name,
+            reprlib.repr(self.address),
+            reprlib.repr(self.replay.key_prefix),
+            reprlib.repr(self.additional_params),
+            reprlib.repr(self.replay.ignore_network_errors)
+        )
+        self.assertEqual(result, expected_result)
+
     def test_get_key(self):
         self.replay.key_prefix = "prefix"
         subscription = "subscription"
@@ -321,7 +356,7 @@ class TestRedisReplayStorage(TestCase):
         self.assertEqual(log.output, [
             f"ERROR:{RedisReplayStorage.__module__}:"
             f"Failed to get the replay marker from redis for "
-            f"subscription {subscription!r}. {error!s}"
+            f"subscription {subscription!r} with {self.replay!r}. {error!s}"
         ])
 
     async def test_get_replay_marker_on_get_redis_connection_error(self):
@@ -339,7 +374,7 @@ class TestRedisReplayStorage(TestCase):
         self.assertEqual(log.output, [
             f"ERROR:{RedisReplayStorage.__module__}:"
             f"Failed to get the replay marker from redis for "
-            f"subscription {subscription!r}. {error!s}"
+            f"subscription {subscription!r} with {self.replay!r}. {error!s}"
         ])
 
     async def test_get_replay_marker_on_get_redis_connection_error_not_ignored(
@@ -396,7 +431,7 @@ class TestRedisReplayStorage(TestCase):
         self.assertEqual(log.output, [
             f"ERROR:{RedisReplayStorage.__module__}:"
             f"Failed to set the replay marker in redis for "
-            f"subscription {subscription!r}. {error!s}"
+            f"subscription {subscription!r} with {self.replay!r}. {error!s}"
         ])
 
     async def test_set_replay_marker_on_get_redis_connection_error(self):
@@ -416,7 +451,7 @@ class TestRedisReplayStorage(TestCase):
         self.assertEqual(log.output, [
             f"ERROR:{RedisReplayStorage.__module__}:"
             f"Failed to set the replay marker in redis for "
-            f"subscription {subscription!r}. {error!s}"
+            f"subscription {subscription!r} with {self.replay!r}. {error!s}"
         ])
 
     async def test_set_replay_marker_on_get_redis_connection_error_not_ignored(

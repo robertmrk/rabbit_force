@@ -41,10 +41,15 @@ class TestApplication(TestCase):
         self.app._configure = mock.CoroutineMock()
         self.app._listen_for_messages = mock.CoroutineMock()
 
-        await self.app._run()
+        with self.assertLogs("rabbit_force.app", "DEBUG") as log:
+            await self.app._run()
 
         self.app._configure.assert_called()
         self.app._listen_for_messages.assert_called()
+        self.assertEqual(log.output, [
+            "INFO:rabbit_force.app:Configuring application ...",
+            "DEBUG:rabbit_force.app:Start listening for messages"
+        ])
 
     @mock.patch("rabbit_force.app.create_message_source")
     @mock.patch("rabbit_force.app.create_message_sink")
@@ -57,7 +62,8 @@ class TestApplication(TestCase):
             "router": {"key3": "value3"}
         }
 
-        await self.app._configure()
+        with self.assertLogs("rabbit_force.app", "DEBUG") as log:
+            await self.app._configure()
 
         create_message_source.assert_called_with(
             **self.app.config["source"],
@@ -71,6 +77,12 @@ class TestApplication(TestCase):
         )
         create_router.assert_called_with(**self.app.config["router"])
         self.assertTrue(self.app._configured)
+        self.assertEqual(log.output, [
+            "DEBUG:rabbit_force.app:Creating message source from "
+            "configuration",
+            "DEBUG:rabbit_force.app:Creating message sink from configuration",
+            "DEBUG:rabbit_force.app:Creating message router from configuration"
+        ])
 
     @mock.patch("rabbit_force.app.asyncio")
     async def test_schedule_message_forwarding(self, asyncio_mod):
@@ -166,8 +178,8 @@ class TestApplication(TestCase):
             self.app._forward_message_done(future)
 
         self.assertEqual(log.output, [
-            f"INFO:rabbit_force.app:Message {replay_id!r} on channel "
-            f"{channel!r} from {source_name!r} forwarded to {route!r}."
+            f"INFO:rabbit_force.app:Forwarded message {replay_id!r} on "
+            f"channel {channel!r} from {source_name!r} to {route!r}."
         ])
         self.assertFalse(self.app._forwarding_tasks)
 
@@ -189,9 +201,8 @@ class TestApplication(TestCase):
             self.app._forward_message_done(future)
 
         self.assertEqual(log.output, [
-            f"WARNING:rabbit_force.app:No route found for message "
-            f"{replay_id!r} on channel {channel!r} from {source_name!r}, "
-            f"message dropped."
+            f"WARNING:rabbit_force.app:Dropped message {replay_id!s} on "
+            f"channel {channel!r} from {source_name!r}, no route found."
         ])
         self.assertFalse(self.app._forwarding_tasks)
 
@@ -230,9 +241,10 @@ class TestApplication(TestCase):
         with self.assertLogs("rabbit_force.app", "DEBUG") as log:
             self.app._forward_message_done(future)
 
-        self.assertTrue(log.output[0].startswith(
-            f"ERROR:rabbit_force.app:Failed to forward message. {error!s}"
-        ))
+        self.assertEqual(log.output, [
+            f"ERROR:rabbit_force.app:Dropped message {replay_id!s} on channel "
+            f"{channel!r} from {source_name!r}. {error!s}"
+        ])
         self.assertFalse(self.app._forwarding_tasks)
 
     def test_forward_message_done_on_sink_error_not_ignored(self):
@@ -263,7 +275,8 @@ class TestApplication(TestCase):
         loop.run_until_complete.side_effect = (KeyboardInterrupt, None)
         asyncio_mod.get_event_loop.return_value = loop
 
-        self.app.run()
+        with self.assertLogs("rabbit_force.app", "DEBUG") as log:
+            self.app.run()
 
         asyncio_mod.set_event_loop_policy.assert_called_with(
             uvloop_mod.EventLoopPolicy.return_value
@@ -274,9 +287,15 @@ class TestApplication(TestCase):
         )
         task.cancel.assert_called()
         loop.run_until_complete.assert_has_calls([mock.call(task)] * 2)
-        loop.add_signal_handler.assert_has_calls([
-            mock.call(signal.SIGINT, task.cancel),
-            mock.call(signal.SIGTERM, task.cancel)
+        loop.add_signal_handler.assert_called_with(
+            signal.SIGTERM,
+            self.app._on_termination_signal,
+            task
+        )
+        self.assertEqual(log.output, [
+            "DEBUG:rabbit_force.app:Starting event loop",
+            "DEBUG:rabbit_force.app:Received keyboard interrupt",
+            "DEBUG:rabbit_force.app:Event loop terminated"
         ])
 
     async def test_listen_for_messages(self):
@@ -300,7 +319,8 @@ class TestApplication(TestCase):
         self.app._sink = mock.MagicMock()
         self.app._sink.close = mock.CoroutineMock()
 
-        await self.app._listen_for_messages()
+        with self.assertLogs("rabbit_force.app", "DEBUG") as log:
+            await self.app._listen_for_messages()
 
         source.open.assert_called()
         self.assertEqual(self.app._schedule_message_forwarding.mock_calls, [
@@ -310,6 +330,18 @@ class TestApplication(TestCase):
         source.close.assert_called()
         self.app._wait_scheduled_forwarding_tasks.assert_called()
         self.app._sink.close.assert_called()
+        self.assertEqual(log.output, [
+            "DEBUG:rabbit_force.app:Opening message source",
+            "DEBUG:rabbit_force.app:Waiting for incoming messages",
+            f"DEBUG:rabbit_force.app:Received incoming message from source "
+            f"{source1!s}, scheduling message forwarding",
+            f"DEBUG:rabbit_force.app:Received incoming message from source "
+            f"{source2!s}, scheduling message forwarding",
+            "DEBUG:rabbit_force.app:Closing message source",
+            "DEBUG:rabbit_force.app:Waiting for running forwarding tasks to "
+            "complete",
+            "DEBUG:rabbit_force.app:Closing message sink"
+        ])
 
     async def test_listen_for_messages_cancelled(self):
         source = mock.MagicMock()
@@ -333,7 +365,8 @@ class TestApplication(TestCase):
         self.app._sink = mock.MagicMock()
         self.app._sink.close = mock.CoroutineMock()
 
-        await self.app._listen_for_messages()
+        with self.assertLogs("rabbit_force.app", "DEBUG") as log:
+            await self.app._listen_for_messages()
 
         source.open.assert_called()
         self.assertEqual(self.app._schedule_message_forwarding.mock_calls, [
@@ -343,3 +376,28 @@ class TestApplication(TestCase):
         source.close.assert_called()
         self.app._wait_scheduled_forwarding_tasks.assert_called()
         self.app._sink.close.assert_called()
+        self.assertEqual(log.output, [
+            "DEBUG:rabbit_force.app:Opening message source",
+            "DEBUG:rabbit_force.app:Waiting for incoming messages",
+            f"DEBUG:rabbit_force.app:Received incoming message from source "
+            f"{source1!s}, scheduling message forwarding",
+            "DEBUG:rabbit_force.app:Canceling wait for incoming messages",
+            "INFO:rabbit_force.app:Shutting down ...",
+            f"DEBUG:rabbit_force.app:Received incoming message from source "
+            f"{source2!s}, scheduling message forwarding",
+            "DEBUG:rabbit_force.app:Closing message source",
+            "DEBUG:rabbit_force.app:Waiting for running forwarding tasks to "
+            "complete",
+            "DEBUG:rabbit_force.app:Closing message sink"
+        ])
+
+    def test_on_termination_signal(self):
+        task = mock.MagicMock()
+
+        with self.assertLogs("rabbit_force.app", "DEBUG") as log:
+            self.app._on_termination_signal(task)
+
+        task.cancel.assert_called()
+        self.assertEqual(log.output, [
+            "DEBUG:rabbit_force.app:Received termination signal"
+        ])

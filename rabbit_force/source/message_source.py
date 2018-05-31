@@ -3,6 +3,7 @@ import asyncio
 from abc import ABC, abstractmethod
 import pickle
 import logging
+import reprlib
 
 from aiosfstream import Client, ReplayMarkerStorage, ReplayOption
 from aiosfstream.exceptions import AiosfstreamException, ClientInvalidOperation
@@ -119,6 +120,14 @@ class SalesforceOrgMessageSource(MessageSource):
         for resource in self.salesforce_org.resources.values():
             await self.client.subscribe(resource.channel_name)
 
+        log_lines = [f"\t* from {_.type_name.value!s} {_.name!r} "
+                     f"on channel {_.channel_name!r}"
+                     for _ in self.salesforce_org.resources.values()]
+        log_lines.append(f"With replay storage "
+                         f"{self.client.replay_storage!r}.")
+        LOGGER.info("Listening for messages from Salesforce org %r: \n%s",
+                    self.name, "\n".join(log_lines))
+
     async def close(self):
         # don't close if already closed
         if not self.closed:
@@ -142,9 +151,9 @@ class SalesforceOrgMessageSource(MessageSource):
 
         # raise a MessageSourceError for all other aiosfstream errors
         except AiosfstreamException as error:
-            raise MessageSourceError(
-                f"Message reception failure. {error!s}"
-            ) from error
+            raise MessageSourceError(f"Failed message reception from "
+                                     f"Salesforce org {self.name!r}. "
+                                     f"{error!s}") from error
 
 
 class MultiMessageSource(MessageSource):
@@ -239,6 +248,16 @@ class RedisReplayStorage(ReplayMarkerStorage):
         self.ignore_network_errors = ignore_network_errors
         self._redis = None
 
+    def __repr__(self):
+        cls_name = type(self).__name__
+        fmt_spec = "{}(address={}, key_prefix={}, additional_params={}, " \
+                   "ignore_network_errors={})"
+        return fmt_spec.format(cls_name,
+                               reprlib.repr(self.address),
+                               reprlib.repr(self.key_prefix),
+                               reprlib.repr(self.additional_params),
+                               reprlib.repr(self.ignore_network_errors))
+
     def _get_key(self, subscription):
         """Create a key value for the given *subscription*
 
@@ -277,7 +296,8 @@ class RedisReplayStorage(ReplayMarkerStorage):
         # on connection error log the error and return None
         except ConnectionError as error:
             error_message = (f"Failed to get the replay marker from redis for "
-                             f"subscription {subscription!r}. {error!s}")
+                             f"subscription {subscription!r} with {self!s}. "
+                             f"{error!s}")
 
             # if network errors should be ignored only log the error
             if self.ignore_network_errors:
@@ -312,7 +332,8 @@ class RedisReplayStorage(ReplayMarkerStorage):
         # on connection error log the error
         except ConnectionError as error:
             error_message = (f"Failed to set the replay marker in redis for "
-                             f"subscription {subscription!r}. {error!s}")
+                             f"subscription {subscription!r} with {self!s}. "
+                             f"{error!s}")
 
             # if network errors should be ignored only log the error
             if self.ignore_network_errors:

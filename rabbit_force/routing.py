@@ -1,10 +1,14 @@
 """Message routing classes"""
 from collections import namedtuple
+import logging
 
 from jsonpath_rw_ext import parse
 from jsonpath_rw.lexer import JsonPathLexerError
 
 from rabbit_force.exceptions import InvalidRoutingConditionError
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class Route(namedtuple("Route", ("broker_name", "exchange_name", "routing_key",
@@ -89,7 +93,7 @@ class MessageRouter:
         # create a message that contains the source name and the message
         # embed the message in a list, so array filtering instructions can be
         # used to check for matching messages in RoutingCondition
-        message = [
+        message_list = [
             {
                 "org_name": source_name,
                 "message": message
@@ -102,12 +106,15 @@ class MessageRouter:
         # find the first matching routing rule and use its routing parameters
         try:
             matching_rule = next(rule for rule in self.rules
-                                 if rule.condition.is_matching(message))
+                                 if rule.condition.is_matching(message_list))
             route = matching_rule.route
 
         # don't change current value of route if no rule produces a positive
         # match
         except StopIteration:
-            pass
+            LOGGER.debug("No routing rule found for message %s from %r, "
+                         "using default route",
+                         message["data"]["event"]["replayId"],
+                         source_name)
 
         return route

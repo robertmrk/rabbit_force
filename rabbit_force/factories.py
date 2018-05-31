@@ -1,4 +1,6 @@
 """Factory functions for creating objects from the configuration"""
+import logging
+
 from aiosfstream import ReplayOption
 
 from .source.message_source import SalesforceOrgMessageSource, \
@@ -9,11 +11,16 @@ from .routing import Route, RoutingRule, RoutingCondition, MessageRouter
 from .amqp_broker import AmqpBroker
 
 
-async def create_salesforce_org(*, consumer_key, consumer_secret, username,
-                                password, streaming_resource_specs, loop=None):
+LOGGER = logging.getLogger(__name__)
+
+
+async def create_salesforce_org(*, name, consumer_key, consumer_secret,
+                                username, password, streaming_resource_specs,
+                                loop=None):
     """Create and initialize a Salesforce org with the specified streaming
     resources
 
+    :param str name: Name of the Salesforce org
     :param str consumer_key: Consumer key from the Salesforce connected \
     app definition
     :param str consumer_secret: Consumer secret from the Salesforce \
@@ -31,12 +38,14 @@ async def create_salesforce_org(*, consumer_key, consumer_secret, username,
     :rtype: ~source.salesforce.org.SalesforceOrg
     """
     # create the Salesforce org
+    LOGGER.debug("Creating Salesforce org %r", name)
     org = SalesforceOrg(consumer_key, consumer_secret, username, password,
                         loop=loop)
 
     # loop through the list of streaming resource specifications
     for spec in streaming_resource_specs:
         # add the resource to the Salesforce org
+        LOGGER.debug("Adding resource to org %r: %r", name, spec)
         await org.add_resource(**spec)
 
     # return the initialized org
@@ -116,19 +125,27 @@ async def create_message_source(*, org_specs, replay_spec=None,
     :rtype: ~source.message_source.MessageSource
     """
     # create the specified Salesforce orgs identified by their names
-    salesforce_orgs = {name: await org_factory(**spec)
+    LOGGER.debug("Creating Salesforce orgs")
+    salesforce_orgs = {name: await org_factory(name=name, **spec)
                        for name, spec in org_specs.items()}
 
     # create message sources for every Salesforce org object and use the
     # specified replay_spec marker storage and replay_spec fallback values
     message_sources = []
+    LOGGER.debug("Creating message sources")
     for name, org in salesforce_orgs.items():
+        LOGGER.debug("Creating replay storage for message source named %r",
+                     name)
         replay_marker_storage, replay_fallback = await replay_storage_factory(
             replay_spec=replay_spec,
             source_name=name,
             ignore_network_errors=ignore_replay_storage_errors,
             loop=loop
         )
+
+        LOGGER.debug("Creating message source named %r with replay storage %r "
+                     "and replay fallback %r", name, replay_marker_storage,
+                     replay_fallback)
         source = SalesforceOrgMessageSource(name, org,
                                             replay_marker_storage,
                                             replay_fallback,
@@ -139,19 +156,24 @@ async def create_message_source(*, org_specs, replay_spec=None,
     # if there is only a single org specified, then return the message source
     # that wraps it
     if len(message_sources) == 1:
+        LOGGER.debug("Only a single message source is defined, using it "
+                     "as the main message source.")
         return message_sources[0]
 
     # if multiple org_specs are specified, group their message sources into a
     # multi message source object
+    LOGGER.debug("Multiple message sources are defined, creating a multi "
+                 "message source.")
     return MultiMessageSource(message_sources, loop=loop)
 
 
-async def create_broker(*, host, exchange_specs, port=None, login='guest',
-                        password='guest', virtualhost='/', ssl=False,
-                        login_method='AMQPLAIN', insist=False, verify_ssl=True,
-                        loop=None):
+async def create_broker(*, name, host, exchange_specs, port=None,
+                        login='guest', password='guest', virtualhost='/',
+                        ssl=False, login_method='AMQPLAIN', insist=False,
+                        verify_ssl=True, loop=None):
     """Create and initialize a message broker with the given parameters
 
+    :param str name: Name of the message broker
     :param str host: the host to connect to
     :param list[dict] exchange_specs: List of exchange specifications that \
     can be passed to :py:meth:`aioamqp.channel.Channel.exchange_declare`
@@ -173,6 +195,7 @@ async def create_broker(*, host, exchange_specs, port=None, login='guest',
     :rtype: AmqpBroker
     """
     # create a broker object
+    LOGGER.debug("Creating message broker %r", name)
     broker = AmqpBroker(host, port=port, login=login, password=password,
                         virtualhost=virtualhost, ssl=ssl,
                         login_method=login_method, insist=insist,
@@ -180,6 +203,7 @@ async def create_broker(*, host, exchange_specs, port=None, login='guest',
 
     # declare the exchanges
     for spec in exchange_specs:
+        LOGGER.debug("Declaring exchange in broker %r: %r", name, spec)
         await broker.exchange_declare(**spec)
 
     return broker
@@ -205,14 +229,17 @@ async def create_message_sink(*, broker_specs,
     :rtype: ~sink.message_sink.MessageSink
     """
     # create the specified broker objects identified by their names
-    brokers = {name: await broker_factory(**params, loop=loop)
+    LOGGER.debug("Creating message brokers")
+    brokers = {name: await broker_factory(name=name, **params, loop=loop)
                for name, params in broker_specs.items()}
 
     # create message sink for every broker object
+    LOGGER.debug("Creating message sinks")
     message_sinks = {name: broker_sink_factory(broker)
                      for name, broker in brokers.items()}
 
     # group the message sink objects into a multi message sink object
+    LOGGER.debug("Creating multi message sink as the main message sink")
     return MultiMessageSink(message_sinks, loop=loop)
 
 
@@ -236,6 +263,8 @@ def create_rule(*, condition_spec, route_spec,
     route = route_factory(**route_spec)
 
     # return the routing rule created with the condition and route
+    LOGGER.debug("Creating routing rule with condition %r and route %r",
+                 condition_spec, route_spec)
     return RoutingRule(condition, route)
 
 
@@ -260,11 +289,16 @@ def create_router(*, default_route_spec, rule_specs, route_factory=Route,
 
     # if a default route is defined then construct it
     if default_route_spec is not None:
+        LOGGER.debug("Creating default route: %r", default_route_spec)
         default_route = route_factory(**default_route_spec)
+    else:
+        LOGGER.debug("No default route is defined")
 
     # construct a list of routing rule objects from the rule specs
+    LOGGER.debug("Creating routing rules")
     rules = [rule_factory(**spec) for spec in rule_specs]
 
     # return a message router constructed from the default route and list of
     # routing rules
+    LOGGER.debug("Creating message router object")
     return MessageRouter(default_route, rules)

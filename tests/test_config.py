@@ -264,34 +264,76 @@ class TestStreamingResourceSchema(TestCase):
 
 class TestGetConfigLoader(TestCase):
     def test_for_json(self):
-        result = get_config_loader("file.json")
+        file_path = "file.json"
+
+        with self.assertLogs("rabbit_force.config", "DEBUG") as log:
+            result = get_config_loader(file_path)
 
         self.assertIs(result, json.load)
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.config:Using JSON config loader for "
+            f"{file_path!r}"
+        ])
 
     def test_for_yaml(self):
-        result = get_config_loader("file.yaml")
+        file_path = "file.yaml"
+
+        with self.assertLogs("rabbit_force.config", "DEBUG") as log:
+            result = get_config_loader(file_path)
 
         self.assertIs(result, yaml.safe_load)
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.config:Using YAML config loader for "
+            f"{file_path!r}"
+        ])
 
     def test_for_yml(self):
-        result = get_config_loader("file.yml")
+        file_path = "file.yml"
+
+        with self.assertLogs("rabbit_force.config", "DEBUG") as log:
+            result = get_config_loader(file_path)
 
         self.assertIs(result, yaml.safe_load)
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.config:Using YAML config loader for "
+            f"{file_path!r}"
+        ])
 
     def test_for_invalid_extension(self):
-        result = get_config_loader("file.xml")
+        file_path = "file.xml"
+
+        with self.assertLogs("rabbit_force.config", "DEBUG") as log:
+            result = get_config_loader(file_path)
 
         self.assertIsNone(result)
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.config:No config loader found for "
+            f"{file_path!r}"
+        ])
 
     def test_for_without_extension(self):
-        result = get_config_loader("file")
+        file_path = "file"
+
+        with self.assertLogs("rabbit_force.config", "DEBUG") as log:
+            result = get_config_loader(file_path)
 
         self.assertIsNone(result)
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.config:No config loader found for "
+            f"{file_path!r}"
+        ])
 
     def test_for_empty_file_path(self):
-        result = get_config_loader("")
+        file_path = ""
+
+        with self.assertLogs("rabbit_force.config", "DEBUG") as log:
+            result = get_config_loader(file_path)
 
         self.assertIsNone(result)
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.config:No config loader found for "
+            f"{file_path!r}"
+        ])
 
 
 class TestLoadConfig(TestCase):
@@ -322,12 +364,17 @@ class TestLoadConfig(TestCase):
 
         with self.assertRaisesRegex(ConfigurationError,
                                     f"Failed to load configuration "
-                                    f"file {file_path!r}. {error!s}"):
+                                    f"file {file_path!r}. {error!s}"),\
+                self.assertLogs("rabbit_force.config", "DEBUG") as log:
             load_config(file_path)
 
         get_config_loader.assert_called_with(file_path)
         loader.assert_called_with(file_obj)
         open_cm.__exit__.assert_called()
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.config:Loading configuration from "
+            f"{file_path!r}"
+        ])
 
     @mock.patch("rabbit_force.config.ApplicationConfigSchema")
     @mock.patch("rabbit_force.config.open")
@@ -348,13 +395,19 @@ class TestLoadConfig(TestCase):
 
         with self.assertRaisesRegex(ConfigurationError,
                                     f"Failed to validate configuration "
-                                    f"file {file_path!r}. {error!s}"):
+                                    f"file {file_path!r}. {error!s}"),\
+                self.assertLogs("rabbit_force.config", "DEBUG") as log:
             load_config(file_path)
 
         get_config_loader.assert_called_with(file_path)
         loader.assert_called_with(file_obj)
         open_cm.__exit__.assert_called()
         schema.load.assert_called_with(loader.return_value)
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.config:Loading configuration from "
+            f"{file_path!r}",
+            "DEBUG:rabbit_force.config:Validating configuration"
+        ])
 
     @mock.patch("rabbit_force.config.ApplicationConfigSchema")
     @mock.patch("rabbit_force.config.open")
@@ -372,10 +425,16 @@ class TestLoadConfig(TestCase):
         schema.load.return_value = validated_config
         schema_cls.return_value = schema
 
-        result = load_config(file_path)
+        with self.assertLogs("rabbit_force.config", "DEBUG") as log:
+            result = load_config(file_path)
 
         self.assertEqual(result, validated_config)
         get_config_loader.assert_called_with(file_path)
         loader.assert_called_with(file_obj)
         open_cm.__exit__.assert_called()
         schema.load.assert_called_with(loader.return_value)
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.config:Loading configuration from "
+            f"{file_path!r}",
+            "DEBUG:rabbit_force.config:Validating configuration"
+        ])
