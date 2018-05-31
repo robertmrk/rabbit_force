@@ -215,14 +215,16 @@ class TestApplication(TestCase):
             "data": {"event": {"replayId": replay_id}}
         }
         source_name = "source"
-        future.result.side_effect = TypeError()
+        error = TypeError("message")
+        future.result.side_effect = error
+        self.app._on_unexpected_error = mock.MagicMock()
         self.app._forwarding_tasks = {future: SourceMessagePair(source_name,
                                                                 message)}
 
-        with self.assertRaises(TypeError):
-            self.app._forward_message_done(future)
+        self.app._forward_message_done(future)
 
         self.assertFalse(self.app._forwarding_tasks)
+        self.app._on_unexpected_error.assert_called_with(error)
 
     def test_forward_message_done_on_sink_error(self):
         future = mock.MagicMock()
@@ -259,11 +261,12 @@ class TestApplication(TestCase):
         source_name = "source"
         error = MessageSinkError("message")
         future.result.side_effect = error
+        self.app._on_unexpected_error = mock.MagicMock()
         self.app._forwarding_tasks = {future: SourceMessagePair(source_name,
                                                                 message)}
 
-        with self.assertRaisesRegex(MessageSinkError, str(error)):
-            self.app._forward_message_done(future)
+        self.app._forward_message_done(future)
+        self.app._on_unexpected_error.assert_called_with(error)
 
     @mock.patch("rabbit_force.app.uvloop")
     @mock.patch("rabbit_force.app.asyncio")
@@ -297,6 +300,7 @@ class TestApplication(TestCase):
             "DEBUG:rabbit_force.app:Received keyboard interrupt",
             "DEBUG:rabbit_force.app:Event loop terminated"
         ])
+        self.assertEqual(self.app._main_task, task)
 
     async def test_listen_for_messages(self):
         source = mock.MagicMock()
@@ -400,4 +404,17 @@ class TestApplication(TestCase):
         task.cancel.assert_called()
         self.assertEqual(log.output, [
             "DEBUG:rabbit_force.app:Received termination signal"
+        ])
+
+    def test_on_unexpected_error(self):
+        error = object()
+        self.app._main_task = mock.MagicMock()
+
+        with self.assertLogs("rabbit_force.app", "DEBUG") as log:
+            self.app._on_unexpected_error(error)
+
+        self.app._main_task.set_exception.assert_called_with(error)
+        self.assertEqual(log.output, [
+            "DEBUG:rabbit_force.app:An unexpected error occurred. "
+            "Setting it as the exception of the main task."
         ])

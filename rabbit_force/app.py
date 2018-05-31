@@ -59,6 +59,8 @@ class Application:
         self._forwarding_tasks = {}
         #: Event loop
         self._loop = None
+        # The main task of the application
+        self._main_task = None
 
     def run(self):
         """Run the Rabbit force application, listen for and forward messages
@@ -69,25 +71,26 @@ class Application:
 
         # create an event loop and create the main task
         self._loop = asyncio.get_event_loop()
-        task = asyncio.ensure_future(self._run(), loop=self._loop)
+        self._main_task = asyncio.ensure_future(self._run(), loop=self._loop)
 
         # add SIGTERM handler
         self._loop.add_signal_handler(signal.SIGTERM,
                                       self._on_termination_signal,
-                                      task)
+                                      self._main_task)
 
         # run the task until completion
         try:
             LOGGER.debug("Starting event loop")
-            self._loop.run_until_complete(task)
+            self._loop.run_until_complete(self._main_task)
 
         # on a keyboard interrupt cancel the main task and await its completion
         except KeyboardInterrupt:
             LOGGER.debug("Received keyboard interrupt")
-            task.cancel()
-            self._loop.run_until_complete(task)
+            self._main_task.cancel()
+            self._loop.run_until_complete(self._main_task)
 
-        LOGGER.debug("Event loop terminated")
+        finally:
+            LOGGER.debug("Event loop terminated")
 
     @staticmethod
     def _on_termination_signal(task):
@@ -254,6 +257,17 @@ class Application:
                 LOGGER.error("Dropped message %r on channel %r from %r. %s",
                              replay_id, channel, source_name, str(error))
             else:
-                raise
+                self._on_unexpected_error(error)
+        except Exception as error:  # pylint: disable=broad-except
+            self._on_unexpected_error(error)
+
+    def _on_unexpected_error(self, error):
+        """Handle unexpected errors of forwarding tasks
+
+        Sets the *error* as the exception of the application's main task.
+        """
+        LOGGER.debug("An unexpected error occurred. Setting it as the "
+                     "exception of the main task.")
+        self._main_task.set_exception(error)
 
 # pylint: enable=too-few-public-methods, too-many-instance-attributes
