@@ -71,43 +71,59 @@ class Application:
         self._loop = asyncio.get_event_loop()
         task = asyncio.ensure_future(self._run(), loop=self._loop)
 
-        # cancel the main task on SIGINT or SIGTERM
-        for signal_id in (signal.SIGINT, signal.SIGTERM):
-            self._loop.add_signal_handler(signal_id, task.cancel)
+        # add SIGTERM handler
+        self._loop.add_signal_handler(signal.SIGTERM,
+                                      self._on_termination_signal,
+                                      task)
 
         # run the task until completion
         try:
+            LOGGER.debug("Starting event loop")
             self._loop.run_until_complete(task)
 
         # on a keyboard interrupt cancel the main task and await its completion
         except KeyboardInterrupt:
+            LOGGER.debug("Received keyboard interrupt")
             task.cancel()
             self._loop.run_until_complete(task)
+
+        LOGGER.debug("Event loop terminated")
+
+    @staticmethod
+    def _on_termination_signal(task):
+        """Cancel the *task*"""
+        LOGGER.debug("Received termination signal")
+        task.cancel()
 
     async def _run(self):
         """Configure the application and listen for incoming messages until
         cancellation"""
 
+        LOGGER.info("Configuring application ...")
         # configure the application
         await self._configure()
 
+        LOGGER.debug("Start listening for messages")
         # listen for incoming messages
         await self._listen_for_messages()
 
     async def _configure(self):
         """Create and configure collaborator objects"""
-        LOGGER.info("Configuring application ...")
-
+        LOGGER.debug("Creating message source from configuration")
         self._source = await create_message_source(
             **self.config["source"],
             ignore_replay_storage_errors=self.ignore_replay_storage_errors,
             connection_timeout=self.source_connection_timeout,
             loop=self._loop
         )
+
+        LOGGER.debug("Creating message sink from configuration")
         self._sink = await create_message_sink(
             **self.config["sink"],
             loop=self._loop
         )
+
+        LOGGER.debug("Creating message router from configuration")
         self._router = create_router(**self.config["router"])
         self._configured = True
 
@@ -120,14 +136,19 @@ class Application:
         """
         try:
             # open the message source
+            LOGGER.debug("Opening message source")
             await self._source.open()
 
+            LOGGER.debug("Waiting for incoming messages")
             # consume messages until the message source is not closed, or until
             # all the messages are consumed from a closed message source
             while not self._source.closed or self._source.has_pending_messages:
                 try:
                     # await an incoming message
                     source_name, message = await self._source.get_message()
+                    LOGGER.debug("Received incoming message from source %r, "
+                                 "scheduling message forwarding",
+                                 source_name)
 
                     # forward the message in non blocking fashion
                     # (without awaiting the tasks result)
@@ -137,19 +158,23 @@ class Application:
                 # on cancellation close the message source but continue to
                 # consume pending messages until there is no more left
                 except asyncio.CancelledError:
+                    LOGGER.debug("Canceling wait for incoming messages")
                     await self._source.close()
                     LOGGER.info("Shutting down ...")
 
         finally:
             # close the source in case it wasn't closed in the inner loop
             # (idempotent if already closed)
+            LOGGER.debug("Closing message source")
             await self._source.close()
 
             # if the source is closed and there are no more messages to
             # consume, await the completion of scheduled forwaring tasks
+            LOGGER.debug("Waiting for running forwarding tasks to complete")
             await self._wait_scheduled_forwarding_tasks()
 
             # when all the messages are forwarded close the message sink
+            LOGGER.debug("Closing message sink")
             await self._sink.close()
 
     async def _schedule_message_forwarding(self, source_name, message):

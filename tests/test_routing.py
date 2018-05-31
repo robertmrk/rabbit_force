@@ -113,12 +113,22 @@ class TestMessageRouter(TestCase):
     def test_find_route_no_rules(self):
         default_route = object()
         router = MessageRouter(default_route)
-        message = object()
-        source_name = object()
+        replay_id = 12
+        message = {
+            "data": {
+                "event": {"replayId": replay_id}
+            }
+        }
+        source_name = "source"
 
-        result = router.find_route(source_name, message)
+        with self.assertLogs("rabbit_force.routing", "DEBUG") as log:
+            result = router.find_route(source_name, message)
 
         self.assertIs(result, default_route)
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.routing:No routing rule found for message "
+            f"{replay_id!s} from {source_name!r}, using default route"
+        ])
 
     def test_find_route_first_matching(self):
         condition = mock.MagicMock()
@@ -173,10 +183,16 @@ class TestMessageRouter(TestCase):
         rule2 = RoutingRule(condition2, route2)
         default_route = object()
         router = MessageRouter(default_route, [rule1, rule2])
-        message = object()
+        replay_id = 12
+        message = {
+            "data": {
+                "event": {"replayId": replay_id}
+            }
+        }
         source_name = object()
 
-        result = router.find_route(source_name, message)
+        with self.assertLogs("rabbit_force.routing", "DEBUG") as log:
+            result = router.find_route(source_name, message)
 
         self.assertIs(result, default_route)
         condition1.is_matching.assert_called_with([{
@@ -187,3 +203,7 @@ class TestMessageRouter(TestCase):
             "org_name": source_name,
             "message": message
         }])
+        self.assertEqual(log.output, [
+            f"DEBUG:rabbit_force.routing:No routing rule found for message "
+            f"{replay_id!s} from {source_name!r}, using default route"
+        ])

@@ -1,6 +1,7 @@
 """Configuration schemas"""
 from pathlib import Path
 import json
+import logging
 
 from marshmallow import Schema, fields, validates_schema, ValidationError, \
     post_load
@@ -9,6 +10,9 @@ import yaml
 
 from .source.salesforce import StreamingResourceType
 from .exceptions import ConfigurationError
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class StrictSchema(Schema):
@@ -312,11 +316,14 @@ def get_config_loader(file_path):
 
     # return the json or the yaml load function
     if suffix == "json":
+        LOGGER.debug("Using JSON config loader for %r", file_path)
         return json.load
     elif suffix in ("yml", "yaml"):
+        LOGGER.debug("Using YAML config loader for %r", file_path)
         return yaml.safe_load
 
     # if the suffix of the file is not recognized return None
+    LOGGER.debug("No config loader found for %r", file_path)
     return None
 
 
@@ -336,6 +343,7 @@ def load_config(file_path):
                                  f"format for {file_path!r}.")
 
     # load the config file's contents
+    LOGGER.debug("Loading configuration from %r", file_path)
     try:
         with open(file_path, "rt") as file:
             unvalidated_config = loader(file)
@@ -344,6 +352,7 @@ def load_config(file_path):
                                  f"file {file_path!r}. {error!s}") from error
 
     # validate the contents of the file
+    LOGGER.debug("Validating configuration")
     try:
         config = ApplicationConfigSchema().load(unvalidated_config)
     except ValidationError as error:
