@@ -1,0 +1,8 @@
+"""Package metadata"""
+TITLE = "rabbit_force"
+DESCRIPTION = ""
+KEYWORDS = ""
+URL = ""
+VERSION = "0.1.0"
+AUTHOR = "Róbert Márki"
+AUTHOR_EMAIL = "gsmiko@gmail.com"

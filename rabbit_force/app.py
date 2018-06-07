@@ -20,7 +20,7 @@ SourceMessagePair = namedtuple("SourceMessagePair", ["source_name", "message"])
 class Application:
     """Rabbit force application"""
 
-    def __init__(self, config, ignore_replay_storage_errors=False,
+    def __init__(self, config, *, ignore_replay_storage_errors=False,
                  ignore_sink_errors=False,
                  source_connection_timeout=10.0):
         """
