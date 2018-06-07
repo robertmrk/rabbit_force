@@ -22,12 +22,16 @@ class TestSalesforceOrgMessageSource(TestCase):
         self.replay = object()
         self.replay_fallback = object()
         self.connection_timeout = 20.0
+        self.json_loads = object()
+        self.json_dumps = object()
         self.source = SalesforceOrgMessageSource(
             self.name,
             self.org,
             replay=self.replay,
             replay_fallback=self.replay_fallback,
             connection_timeout=self.connection_timeout,
+            json_dumps=self.json_dumps,
+            json_loads=self.json_loads,
             loop=self.loop
         )
 
@@ -38,6 +42,8 @@ class TestSalesforceOrgMessageSource(TestCase):
             replay=self.replay,
             replay_fallback=self.replay_fallback,
             connection_timeout=self.connection_timeout,
+            json_dumps=self.json_dumps,
+            json_loads=self.json_loads,
             loop=self.loop
         )
         self.assertEqual(self.source.client, self.client)

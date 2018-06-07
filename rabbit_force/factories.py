@@ -2,6 +2,7 @@
 import logging
 
 from aiosfstream import ReplayOption
+import ujson
 
 from .message_source import SalesforceOrgMessageSource, MultiMessageSource, \
     RedisReplayStorage
@@ -150,6 +151,8 @@ async def create_message_source(*, org_specs, replay_spec=None,
                                             replay_marker_storage,
                                             replay_fallback,
                                             connection_timeout,
+                                            json_loads=ujson.loads,
+                                            json_dumps=ujson.dumps,
                                             loop=loop)
         message_sources.append(source)
 
@@ -235,7 +238,7 @@ async def create_message_sink(*, broker_specs,
 
     # create message sink for every broker object
     LOGGER.debug("Creating message sinks")
-    message_sinks = {name: broker_sink_factory(broker)
+    message_sinks = {name: broker_sink_factory(broker, json_dumps=ujson.dumps)
                      for name, broker in brokers.items()}
 
     # group the message sink objects into a multi message sink object

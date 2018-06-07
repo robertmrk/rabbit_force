@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 import pickle
 import logging
 import reprlib
+import json
 
 from aiosfstream import Client, ReplayMarkerStorage, ReplayOption
 from aiosfstream.exceptions import AiosfstreamException, ClientInvalidOperation
@@ -65,7 +66,8 @@ class SalesforceOrgMessageSource(MessageSource):
 
     """Message source for fetching Streaming API messages"""
     def __init__(self, name, salesforce_org, replay=ReplayOption.NEW_EVENTS,
-                 replay_fallback=None, connection_timeout=10.0, loop=None):
+                 replay_fallback=None, connection_timeout=10.0,
+                 json_loads=json.loads, json_dumps=json.dumps, loop=None):
         """
         :param str name: The name of the message source
         :param SalesforceOrg salesforce_org: A salesforce org object
@@ -85,6 +87,12 @@ class SalesforceOrgMessageSource(MessageSource):
         client to re-establish a connection with the server when the \
         connection fails.
         :type connection_timeout: int, float or None
+        :param json_dumps: Function for JSON serialization, the default is \
+        :func:`json.dumps`
+        :type json_dumps: :func:`callable`
+        :param json_loads: Function for JSON deserialization, the default is \
+        :func:`json.loads`
+        :type json_loads: :func:`callable`
         :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
                      schedule tasks. If *loop* is ``None`` then
                      :func:`asyncio.get_event_loop` is used to get the default
@@ -98,6 +106,8 @@ class SalesforceOrgMessageSource(MessageSource):
                              replay=replay,
                              replay_fallback=replay_fallback,
                              connection_timeout=connection_timeout,
+                             json_dumps=json_dumps,
+                             json_loads=json_loads,
                              loop=self._loop)
 
     # pylint: enable=too-many-arguments

@@ -48,9 +48,10 @@ class TestCreateSalesforceOrg(TestCase):
 
 
 class TestCreateMessageSource(TestCase):
+    @mock.patch("rabbit_force.factories.ujson")
     @mock.patch("rabbit_force.factories.MultiMessageSource")
     @mock.patch("rabbit_force.factories.SalesforceOrgMessageSource")
-    async def test_create(self, org_source_cls, multi_source_cls):
+    async def test_create(self, org_source_cls, multi_source_cls, ujson_mod):
         org_specs = {
             "org_name1": {
                 "key1": "value1"
@@ -104,9 +105,11 @@ class TestCreateMessageSource(TestCase):
         org_source_cls.assert_has_calls([
             mock.call("org_name1", org1, replay_storage1,
                       ReplayOption.ALL_EVENTS, connection_timeout,
+                      json_dumps=ujson_mod.dumps, json_loads=ujson_mod.loads,
                       loop=self.loop),
             mock.call("org_name2", org2, replay_storage2,
                       ReplayOption.ALL_EVENTS, connection_timeout,
+                      json_dumps=ujson_mod.dumps, json_loads=ujson_mod.loads,
                       loop=self.loop)
         ])
         multi_source_cls.assert_called_with([org_source1, org_source2],
@@ -128,10 +131,11 @@ class TestCreateMessageSource(TestCase):
             f"defined, creating a multi message source."
         ])
 
+    @mock.patch("rabbit_force.factories.ujson")
     @mock.patch("rabbit_force.factories.MultiMessageSource")
     @mock.patch("rabbit_force.factories.SalesforceOrgMessageSource")
     async def test_create_single_source(self, org_source_cls,
-                                        multi_source_cls):
+                                        multi_source_cls, ujson_mod):
         org_specs = {
             "org_name1": {
                 "key1": "value1"
@@ -173,6 +177,7 @@ class TestCreateMessageSource(TestCase):
         org_source_cls.assert_has_calls([
             mock.call("org_name1", org1, replay_storage1,
                       ReplayOption.ALL_EVENTS, connection_timeout,
+                      json_loads=ujson_mod.loads, json_dumps=ujson_mod.dumps,
                       loop=self.loop)
         ])
         multi_source_cls.assert_not_called()
@@ -238,8 +243,9 @@ class TestCreateBroker(TestCase):
 
 
 class TestCreateMessageSink(TestCase):
+    @mock.patch("rabbit_force.factories.ujson")
     @mock.patch("rabbit_force.factories.MultiMessageSink")
-    async def test_create(self, multi_sink_cls):
+    async def test_create(self, multi_sink_cls, ujson_mod):
         broker_specs = {
             "broker1": {
                 "key": "value"
@@ -262,7 +268,8 @@ class TestCreateMessageSink(TestCase):
         broker_factory.assert_called_with(**broker_specs["broker1"],
                                           name="broker1",
                                           loop=self.loop)
-        broker_sink_factory.assert_called_with(broker)
+        broker_sink_factory.assert_called_with(broker,
+                                               json_dumps=ujson_mod.dumps)
         multi_sink_cls.assert_called_with(
             {"broker1": message_sink}, loop=self.loop
         )
