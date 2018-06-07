@@ -3,10 +3,10 @@ import logging
 
 from aiosfstream import ReplayOption
 
-from .source.message_source import SalesforceOrgMessageSource, \
-    MultiMessageSource, RedisReplayStorage
-from .source.salesforce import SalesforceOrg
-from .sink.message_sink import AmqpBrokerMessageSink, MultiMessageSink
+from .message_source import SalesforceOrgMessageSource, MultiMessageSource, \
+    RedisReplayStorage
+from .salesforce import SalesforceOrg
+from .message_sink import AmqpBrokerMessageSink, MultiMessageSink
 from .routing import Route, RoutingRule, RoutingCondition, MessageRouter
 from .amqp_broker import AmqpBroker
 

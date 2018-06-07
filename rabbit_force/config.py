@@ -8,7 +8,7 @@ from marshmallow import Schema, fields, validates_schema, ValidationError, \
 from marshmallow.validate import Length, Range, OneOf
 import yaml
 
-from .source.salesforce import StreamingResourceType
+from .salesforce import StreamingResourceType
 from .exceptions import ConfigurationError
 
 

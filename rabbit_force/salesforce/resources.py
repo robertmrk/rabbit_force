@@ -2,7 +2,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum, unique
 
-from ...exceptions import SalesforceNotFoundError, SpecificationError
+from ..exceptions import SalesforceNotFoundError, SpecificationError
 
 
 @unique

@@ -3,7 +3,7 @@ from http import HTTPStatus
 from asynctest import TestCase, mock
 import aiohttp
 
-from rabbit_force.source.salesforce.rest_client import SalesforceRestClient, \
+from rabbit_force.salesforce.rest_client import SalesforceRestClient, \
     API_VERSION
 from rabbit_force.exceptions import SalesforceRestError, NetworkError, \
     SalesforceUnauthorizedError

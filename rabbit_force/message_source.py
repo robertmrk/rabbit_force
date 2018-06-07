@@ -9,7 +9,7 @@ from aiosfstream import Client, ReplayMarkerStorage, ReplayOption
 from aiosfstream.exceptions import AiosfstreamException, ClientInvalidOperation
 import aioredis
 
-from ..exceptions import MessageSourceError, InvalidOperation, \
+from .exceptions import MessageSourceError, InvalidOperation, \
     ReplayStorageError
 
 

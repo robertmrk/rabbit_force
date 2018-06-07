@@ -1,7 +1,7 @@
 from asynctest import TestCase, mock
 
-from rabbit_force.source.salesforce import SalesforceOrg, \
-    SalesforceRestClient, StreamingResourceFactory
+from rabbit_force.salesforce import SalesforceOrg, SalesforceRestClient, \
+    StreamingResourceFactory
 
 
 class TestSalesforceOrg(TestCase):

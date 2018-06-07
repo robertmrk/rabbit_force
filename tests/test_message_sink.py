@@ -1,6 +1,6 @@
 from asynctest import TestCase, mock
 
-from rabbit_force.sink.message_sink import AmqpBrokerMessageSink, \
+from rabbit_force.message_sink import AmqpBrokerMessageSink, \
     MultiMessageSink
 from rabbit_force.exceptions import MessageSinkError, NetworkError
 
@@ -12,14 +12,14 @@ class TestAmqpMessageSink(TestCase):
         self.sink = AmqpBrokerMessageSink(self.broker, self.json_dumps)
 
     def test_init(self):
-        with self.assertLogs("rabbit_force.sink.message_sink", "INFO") as log:
+        with self.assertLogs("rabbit_force.message_sink", "INFO") as log:
             sink = AmqpBrokerMessageSink(self.broker, self.json_dumps)
 
         self.assertIs(sink.broker, self.broker)
         self.assertIs(sink._json_dumps, self.json_dumps)
         self.assertIsNone(sink.channel)
         self.assertEqual(log.output, [
-            f"INFO:rabbit_force.sink.message_sink:Using message broker "
+            f"INFO:rabbit_force.message_sink:Using message broker "
             f"{self.broker!r}"
         ])
 

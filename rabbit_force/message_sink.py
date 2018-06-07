@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import json
 import logging
 
-from ..exceptions import MessageSinkError, NetworkError
+from .exceptions import MessageSinkError, NetworkError
 
 
 LOGGER = logging.getLogger(__name__)
