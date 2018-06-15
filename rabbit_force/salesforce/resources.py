@@ -96,7 +96,7 @@ class StreamingResourceFactory:  # pylint: disable=too-few-public-methods
         given *resource_spec*
 
         If the *resource_spec* contains a single unique identifier like \
-        ``Name`` or ``Id`, then the existing resource will be loaded and \
+        ``Name`` or ``Id``, then the existing resource will be loaded and \
         returned. If the *resource_spec* contains multiple key-value pairs,
         then it's assumed to be a resource definition, and based on it a new \
         resource will be created or an existing one will be updated if \

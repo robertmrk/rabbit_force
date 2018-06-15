@@ -30,8 +30,8 @@ class SalesforceRestClient:
 
     def __init__(self, authenticator, loop=None):
         """
-        :param aiosfstream.AuthenticatorBase authenticator: An authenticatior \
-        object
+        :param aiosfstream.auth.AuthenticatorBase authenticator: An \
+        authenticatior object
         :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
                      schedule tasks. If *loop* is ``None`` then
                      :func:`asyncio.get_event_loop` is used to get the default

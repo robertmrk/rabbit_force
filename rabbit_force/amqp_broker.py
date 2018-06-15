@@ -17,7 +17,7 @@ class AmqpBroker:  # pylint: disable=too-many-instance-attributes
         :param str host: the host to connect to
         :param list[dict] exchange_specs: List of exchange specifications \
         that can be passed to \
-        :py:meth:`aioamqp.channel.Channel.exchange_declare`
+        :py:meth:`aioamqp.Channel.exchange_declare`
         :param port: broker port
         :type port: int or None
         :param str login: login

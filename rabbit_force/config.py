@@ -23,7 +23,7 @@ class StrictSchema(Schema):
     def check_unknown_fields(self, data, original_data):
         """Check for the presence and reject unknown fields
 
-        :raise marshmallow.ValidationError: If an unknown field is found
+        :raise marshmallow.exceptions.ValidationError: If an unknown field is found
         """
         # get the difference of the loaded and specified fields
         unknown_fields = set(original_data) - set(self.fields)
@@ -63,7 +63,7 @@ class PushTopicSchema(StrictSchema):
     def check_required_fileds(self, data):  # pylint: disable=no-self-use
         """Check for required fields
 
-        :raise marshmallow.ValidationError: If no fields are specified or if \
+        :raise marshmallow.exceptions.ValidationError: If no fields are specified or if \
         only a single non identifier field is specified or multiple fields \
         are specified but they're not enough for a resource definition
         """
@@ -90,7 +90,7 @@ class PushTopicSchema(StrictSchema):
     def check_api_version(self, data):  # pylint: disable=no-self-use
         """Check for invalid fields for the specified API version
 
-        :raise marshmallow.ValidationError: If any invalid fields found for \
+        :raise marshmallow.exceptions.ValidationError: If any invalid fields found for \
         the specified API version
         """
         # skip validation if the ApiVersion field is not present, which might
@@ -131,7 +131,7 @@ class StreamingChannelSchema(StrictSchema):
     def check_required_fileds(self, data):  # pylint: disable=no-self-use
         """Check for required fields
 
-        :raise marshmallow.ValidationError: If no fields are specified or if \
+        :raise marshmallow.exceptions.ValidationError: If no fields are specified or if \
         only a single non identifier field is specified or multiple fields \
         are specified but they're not enough for a resource definition
         """
