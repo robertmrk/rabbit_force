@@ -5,7 +5,7 @@ name = "pypi"
 
 [packages]
 aiohttp = ">=3.1,<4.0"
-aiosfstream = ">=0.2.1,<0.3.0"
+aiosfstream = ">=0.2.2,<0.3.0"
 pyyaml = "*"
 aioredis = "*"
 aioamqp = "*"
