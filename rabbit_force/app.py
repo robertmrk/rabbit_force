@@ -12,7 +12,11 @@ from .exceptions import MessageSinkError
 
 
 LOGGER = logging.getLogger(__name__)
+
+#: Represents a message and the source it was received from
 SourceMessagePair = namedtuple("SourceMessagePair", ["source_name", "message"])
+SourceMessagePair.source_name.__doc__ = "Name of the message source"
+SourceMessagePair.message.__doc__ = "The received message"
 
 # pylint: disable=too-few-public-methods, too-many-instance-attributes
 
@@ -24,9 +28,15 @@ class Application:
                  ignore_sink_errors=False,
                  source_connection_timeout=10.0):
         """
-        The application configures itself the first time :meth:`run` is called.
-        If you want to run the application with a different configuration then
-        a new Application instance should be created.
+        Application is the mediator class which is responsible for listening
+        for messages from the source objects and routing them to the right
+        message sinks.
+
+        .. note::
+
+            The application configures itself the first time :meth:`run` is
+            called. If you want to run the application with a different
+            configuration then a new Application instance should be created.
 
         :param dict config: Application configuration
         :param bool ignore_replay_storage_errors: If True then no exceptions \
@@ -36,7 +46,8 @@ class Application:
         will be raised in case a message sink error occurs
         :param source_connection_timeout: The maximum amount of time to wait \
         for the message source to re-establish a connection with the server \
-        when the connection fails.
+        when the connection fails. If ``0`` then the message source will try \
+        to reconnect indefinitely.
         :type source_connection_timeout: int, float or None
         """
         #: The application's configuration
@@ -64,7 +75,7 @@ class Application:
 
     def run(self):
         """Run the Rabbit force application, listen for and forward messages
-        until a keyboard interrupt occurs"""
+        until a keyboard interrupt or a termination signal is received"""
 
         # use the uvloop event loop policy
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())

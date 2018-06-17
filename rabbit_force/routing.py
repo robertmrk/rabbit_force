@@ -58,6 +58,8 @@ class RoutingCondition:  # pylint: disable=too-few-public-methods
 
 #: Message routing rule
 RoutingRule = namedtuple("RoutingRule", ["condition", "route"])
+RoutingRule.condition.__doc__ = "A routing condition as a JSONPath expression"
+RoutingRule.route.__doc__ = "A route"
 
 
 class MessageRouter:

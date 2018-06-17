@@ -81,8 +81,8 @@ class StreamingChannelResource(
 
 
 class StreamingResourceFactory:  # pylint: disable=too-few-public-methods
-    """Factory class for creating StreamingResource objects from resource
-    specifications"""
+    """Factory class for creating :obj:`StreamingResource` objects from
+    resource specifications"""
     def __init__(self, rest_client):
         """
         :param rest_client: Salesforce REST API client
@@ -92,8 +92,8 @@ class StreamingResourceFactory:  # pylint: disable=too-few-public-methods
         self.client = rest_client
 
     async def create_resource(self, type_name, resource_spec):
-        """Create a StreamingResource object of type *type_name* based on the
-        given *resource_spec*
+        """Create a :obj:`StreamingResource` object of type *type_name* based
+        on the given *resource_spec*
 
         If the *resource_spec* contains a single unique identifier like \
         ``Name`` or ``Id``, then the existing resource will be loaded and \

@@ -1,4 +1,4 @@
-"""rabbit_force entrypoint"""
+"""rabbit_force application entrypoint"""
 import logging
 from enum import IntEnum
 from collections import namedtuple
@@ -23,6 +23,9 @@ class Verbosity(IntEnum):
 #: Basic logging parameters
 LoggingParameters = namedtuple("LoggingParameters",
                                ("level", "name", "format"))
+LoggingParameters.level.__doc__ = "The level of the logger and handler"
+LoggingParameters.name.__doc__ = "Name of the application's logger"
+LoggingParameters.format.__doc__ = "Format definition for the log formatter"
 
 #: Verbosity specific logging parameters
 VERBOSITY_LOGGING_PARAMETERS = {

@@ -1,4 +1,4 @@
-"""Message source class definitions"""
+"""Definition of MessageSource classes and their collaborator classes"""
 import asyncio
 from abc import ABC, abstractmethod
 import pickle
@@ -83,7 +83,7 @@ class SalesforceOrgMessageSource(MessageSource):
         :param replay_fallback: Replay fallback policy, for when a subscribe \
         operation fails because a replay id was specified for a message \
         outside the retention window
-        :type replay_fallback: aiosfstream.ReplayOption
+        :type replay_fallback: aiosfstream.ReplayOption or None
         :param connection_timeout: The maximum amount of time to wait for the \
         client to re-establish a connection with the server when the \
         connection fails.

@@ -1,5 +1,5 @@
-Developer documentation
-=======================
+Developer reference
+===================
 
 .. toctree::
    :maxdepth: 4
