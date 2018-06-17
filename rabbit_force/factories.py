@@ -1,5 +1,6 @@
 """Factory functions for creating objects from the configuration"""
 import logging
+import asyncio
 
 from aiosfstream import ReplayOption
 import ujson
@@ -38,6 +39,8 @@ async def create_salesforce_org(*, name, consumer_key, consumer_secret,
     :return: An initialized Salesforce org object
     :rtype: ~source.salesforce.org.SalesforceOrg
     """
+    loop = loop or asyncio.get_event_loop()
+
     # create the Salesforce org
     LOGGER.debug("Creating Salesforce org %r", name)
     org = SalesforceOrg(consumer_key, consumer_secret, username, password,
@@ -71,6 +74,8 @@ async def create_replay_storage(*, replay_spec, source_name,
                  event loop.
     :return:
     """
+    loop = loop or asyncio.get_event_loop()
+
     replay_marker_storage = ReplayOption.NEW_EVENTS
     replay_fallback = None
 
@@ -125,6 +130,8 @@ async def create_message_source(*, org_specs, replay_spec=None,
     :return: A message source object
     :rtype: ~source.message_source.MessageSource
     """
+    loop = loop or asyncio.get_event_loop()
+
     # create the specified Salesforce orgs identified by their names
     LOGGER.debug("Creating Salesforce orgs")
     salesforce_orgs = {name: await org_factory(name=name, **spec)
@@ -197,6 +204,8 @@ async def create_broker(*, name, host, exchange_specs, port=None,
     :return: An AMQP broker instance
     :rtype: AmqpBroker
     """
+    loop = loop or asyncio.get_event_loop()
+
     # create a broker object
     LOGGER.debug("Creating message broker %r", name)
     broker = AmqpBroker(host, port=port, login=login, password=password,
@@ -231,6 +240,8 @@ async def create_message_sink(*, broker_specs,
                  event loop.
     :rtype: ~sink.message_sink.MessageSink
     """
+    loop = loop or asyncio.get_event_loop()
+
     # create the specified broker objects identified by their names
     LOGGER.debug("Creating message brokers")
     brokers = {name: await broker_factory(name=name, **params, loop=loop)

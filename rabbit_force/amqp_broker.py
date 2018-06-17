@@ -1,5 +1,6 @@
 """AmqpBroker class definition"""
 import reprlib
+import asyncio
 
 import aioamqp
 
@@ -42,7 +43,7 @@ class AmqpBroker:  # pylint: disable=too-many-instance-attributes
         self.login_method = login_method
         self.insist = insist
         self.verify_ssl = verify_ssl
-        self._loop = loop
+        self._loop = loop or asyncio.get_event_loop()
         self._transport = None
         self._protocol = None
         self._channel = None
