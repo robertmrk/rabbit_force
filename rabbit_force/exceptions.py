@@ -7,18 +7,21 @@ Exception hierarchy::
         SpecificationError
         NetworkError
         ServerError
-            SalesforceError
-                SalesforceRestError
-                    SalesforceMultipleChoicesError
-                    SalesforceNotModifiedError
-                    SalesforceBadRequestError
-                    SalesforceUnauthorizedError
-                    SalesforceForbiddenError
-                    SalesforceNotFoundError
-                    SalesforceMethodNotAllowedError
-                    SalesforceUnsupportedMediaTypeError
-                    SalesforceInternalServerError
+            SalesforceRestError
+                SalesforceMultipleChoicesError
+                SalesforceNotModifiedError
+                SalesforceBadRequestError
+                SalesforceUnauthorizedError
+                SalesforceForbiddenError
+                SalesforceNotFoundError
+                SalesforceMethodNotAllowedError
+                SalesforceUnsupportedMediaTypeError
+                SalesforceInternalServerError
         MessageSourceError
+        InvalidRoutingConditionError
+        MessageSinkError
+        ConfigurationError
+        ReplayStorageError
 """
 
 
@@ -41,11 +44,7 @@ class ServerError(RabbitForceError):
     """Server side error"""
 
 
-class SalesforceError(ServerError):
-    """Salesforce error"""
-
-
-class SalesforceRestError(SalesforceError):
+class SalesforceRestError(ServerError):
     """Salesforce REST API error"""
 
 
