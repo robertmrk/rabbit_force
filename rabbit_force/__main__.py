@@ -85,7 +85,7 @@ def configure_logger(verbosity):
               help="Storage error ignorance")
 @click.option("--ignore-sink-errors", default=False, is_flag=True,
               help="Sink error ignorance")
-@click.option("--source-connection-timeout", type=click.IntRange(min=1),
+@click.option("--source-connection-timeout", type=click.IntRange(min=0),
               default=10, show_default=True,
               help="Try to reconnect for the given amount of seconds")
 @click.option("-v", "--verbosity", type=click.IntRange(min=1, max=3),
