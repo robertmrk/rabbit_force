@@ -71,7 +71,7 @@ class SalesforceOrg:
         :param StreamingResource resource: A streaming resource
         """
         # delete the resource with the given id from the org
-        self._rest_client.delete(resource.type_name, resource.id)
+        await self._rest_client.delete(resource.type_name, resource.id)
 
     async def cleanup_resources(self):
         """Remove streaming resources which are not marked as durable"""
