@@ -85,20 +85,33 @@ def configure_logger(verbosity):
 @click.command()
 @click.argument("config_file", type=click.Path(exists=True, dir_okay=False))
 @click.option("--ignore-replay-storage-errors", default=False, is_flag=True,
-              help="Storage error ignorance")
+              help="Ignore errors that might occur on reading or writing "
+                   "replay marker values.")
 @click.option("--ignore-sink-errors", default=False, is_flag=True,
-              help="Sink error ignorance")
+              help="Ignore errors that might occur if a message can't be "
+                   "forwarded to a given message sink due to network or "
+                   "configuration errors.")
 @click.option("--source-connection-timeout", type=click.IntRange(min=0),
               default=10, show_default=True,
-              help="Try to reconnect for the given amount of seconds")
+              help="If the connection to the Streaming API fails due to "
+                   "network errors or service outages, try to reconnect for "
+                   "the given amount of seconds before producing an error. "
+                   "If 0 timeout is specified, then the service will try to "
+                   "re-establish the connection indefinitely.")
 @click.option("-v", "--verbosity", type=click.IntRange(min=1, max=3),
-              default=1, show_default=True, help="Logging detail level (1-3)")
+              default=1, show_default=True, help="Logging detail level (1-3).")
 @click.option("-t", "--show-trace", default=False, is_flag=True,
-              help="Show error backtrace")
+              help="Show full backtrace on error.")
 @click.version_option(VERSION)
 def main(config_file, ignore_replay_storage_errors, ignore_sink_errors,
          source_connection_timeout, verbosity, show_trace):
-    """rabbit_force application"""
+    """rabbit_force is a Salesforce Streaming API to RabbitMQ adapter service.
+    It listens for event messages from Salesforce's Streaming API and forwards
+    them to a RabbitMQ broker for you, so you don't have to.
+
+    Message sources, sinks and message routing rules should be defined in a
+    CONFIG_FILE either in JSON (.json) or in YAML (.yaml, .yml) format.
+    """
     logger = configure_logger(verbosity)
     logger.info("Starting up ...")
 
