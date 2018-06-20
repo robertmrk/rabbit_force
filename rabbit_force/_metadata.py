@@ -1,6 +1,6 @@
 """Package metadata"""
 TITLE = "rabbit_force"
-DESCRIPTION = ""
+DESCRIPTION = "Salesforce Streaming API to RabbitMQ adapter service"
 KEYWORDS = ""
 URL = ""
 VERSION = "0.1.0"

@@ -53,7 +53,7 @@ messages into the exchange ``my_exchange`` with different routing keys. A redis
 database is used to store raplay markers sent by Salesforce to take advantage
 of `message durability <replay_>`_.
 
-.. image:: _static/usage.svg
+.. image:: docs/source/_static/usage.svg
 
 The configuration file bellow sets up rabbit_force to forward messages from
 ``lead_changes``, ``contact_changes`` and ``my_channel`` with the routing keys
@@ -180,23 +180,23 @@ A sample run of rabbit_force with the above configuration file.
     2018-06-19 16:24:20,180:INFO: Forwarded message 1 on channel '/u/my_channel' from 'my_org' to Route(broker_name='my_broker', exchange_name='my_exchange', routing_key='my_channel_message', properties=None).
     2018-06-19 16:24:27,097:INFO: Shutting down ...
 
-Contents
---------
-
-.. toctree::
-   :maxdepth: 4
-
-   guide
-   modules
-   changes
-
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
-.. include:: global.rst
+.. _aiohttp: https://github.com/aio-libs/aiohttp/
+.. _aiocometd: https://github.com/robertmrk/aiocometd/
+.. _asyncio: https://docs.python.org/3/library/asyncio.html
+.. _api: https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/api_streaming/intro_stream.htm
+.. _PushTopic: https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/api_streaming/working_with_pushtopics.htm
+.. _GenericStreaming: https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/api_streaming/generic_streaming_intro.htm#generic_streaming_intro
+.. _replay: https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/api_streaming/using_streaming_api_durability.htm
+.. _CometD: https://cometd.org/
+.. _Comet: https://en.wikipedia.org/wiki/Comet_(programming)
+.. _Bayeux: https://docs.cometd.org/current/reference/#_bayeux
+.. _ext: https://docs.cometd.org/current/reference/#_bayeux_ext
+.. _password_auth: https://help.salesforce.com/articleView?id=remoteaccess_oauth_username_password_flow.htm&type=5
+.. _refresh_auth: https://help.salesforce.com/articleView?id=remoteaccess_oauth_refresh_token_flow.htm&type=5
+.. _connected_app: https://help.salesforce.com/articleView?id=connected_app_overview.htm&type=5
+.. _sf_auth: https://help.salesforce.com/articleView?id=remoteaccess_authenticate_overview.htm
+.. _web_server_auth: https://help.salesforce.com/articleView?id=remoteaccess_oauth_web_server_flow.htm&type=5
+.. _rabbitmq: http://www.rabbitmq.com/
+.. _microservice: http://microservices.io/patterns/communication-style/messaging.html
+.. _jsonpath: http://goessner.net/articles/JsonPath/
+.. _redis: https://redis.io/
