@@ -18,3 +18,10 @@
 .. _microservice: http://microservices.io/patterns/communication-style/messaging.html
 .. _jsonpath: http://goessner.net/articles/JsonPath/
 .. _redis: https://redis.io/
+.. _PushTopicRef: https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/api_streaming/pushtopic.htm
+.. _StreamingChannelRef: https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/api_streaming/streamingChannel.htm
+.. _rabbitmq_auth: https://www.rabbitmq.com/authentication.html
+.. _rabbitmq_exchange_type: https://www.rabbitmq.com/tutorials/amqp-concepts.html#exchanges
+.. _rabbitmq_policies: https://www.rabbitmq.com/parameters.html
+.. _jsonpath-rw: https://github.com/kennknowles/python-jsonpath-rw
+.. _jsonpath-rw-ext: https://github.com/sileht/python-jsonpath-rw-ext
