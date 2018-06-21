@@ -290,6 +290,7 @@ class MessageRouterSchema(StrictSchema):
                                   allow_none=True,
                                   attribute="default_route_spec")
     rules = fields.List(fields.Nested(RoutingRuleSchema()),
+                        missing=list,
                         attribute="rule_specs")
 
 
