@@ -6,6 +6,7 @@ User's guide
 
    command_line
    configuration
+   examples
 
 Indices and tables
 ==================

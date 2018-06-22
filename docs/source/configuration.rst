@@ -3,7 +3,8 @@ Configuration
 
 Connections to external services and routing rules are defined using a
 configuration files which can be in either in JSON (.json) or in YAML
-(.yaml, .yml) format.
+(.yaml, .yml) format. For concrete configuration examples take a look at the
+:doc:`examples` section.
 
 There are three main components which should be configured when rabbit_force
 is started, likewise the configuration file has three main sections.
