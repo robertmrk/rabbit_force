@@ -1,6 +1,22 @@
 rabbit_force
 ============
 
+.. image:: https://readthedocs.org/projects/rabbit-force/badge/?version=latest
+    :target: https://rabbit-force.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
+.. image:: https://travis-ci.org/robertmrk/rabbit_force.svg?branch=develop
+    :target: https://travis-ci.org/robertmrk/rabbit_force
+    :alt: Build status
+
+.. image:: https://coveralls.io/repos/github/robertmrk/rabbit_force/badge.svg
+    :target: https://coveralls.io/github/robertmrk/rabbit_force
+    :alt: Coverage
+
+.. image:: https://img.shields.io/badge/License-MIT-yellow.svg
+    :target: https://opensource.org/licenses/MIT
+    :alt: MIT license
+
 rabbit_force is a `Salesforce Streaming API <api_>`_ to `RabbitMQ <rabbitmq_>`_
 adapter service. It listens for event messages from
 `Salesforce's Streaming API <api_>`_ and forwards them to a
