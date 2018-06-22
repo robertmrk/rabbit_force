@@ -7,6 +7,7 @@ their usage.
 """
 import logging
 import asyncio
+from copy import deepcopy
 
 from aiosfstream import ReplayOption
 import ujson
@@ -92,6 +93,8 @@ async def create_replay_storage(*, replay_spec, source_name,
 
     # if the replay storage is defined
     if replay_spec:
+        # make a copy of replay_spec
+        replay_spec = deepcopy(replay_spec)
         # append the value of the source_name to the key prefix
         if replay_spec.get("key_prefix"):
             replay_spec["key_prefix"] += ":" + source_name
