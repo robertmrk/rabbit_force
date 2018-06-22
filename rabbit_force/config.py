@@ -1,4 +1,5 @@
-"""Configuration schemas"""
+"""Marshmallow schemas for configuration validation and functions for
+loading configurations from files"""
 from pathlib import Path
 import json
 import logging
@@ -23,7 +24,8 @@ class StrictSchema(Schema):
     def check_unknown_fields(self, data, original_data):
         """Check for the presence and reject unknown fields
 
-        :raise marshmallow.ValidationError: If an unknown field is found
+        :raise marshmallow.exceptions.ValidationError: If an unknown field is \
+        found
         """
         # get the difference of the loaded and specified fields
         unknown_fields = set(original_data) - set(self.fields)
@@ -63,9 +65,10 @@ class PushTopicSchema(StrictSchema):
     def check_required_fileds(self, data):  # pylint: disable=no-self-use
         """Check for required fields
 
-        :raise marshmallow.ValidationError: If no fields are specified or if \
-        only a single non identifier field is specified or multiple fields \
-        are specified but they're not enough for a resource definition
+        :raise marshmallow.exceptions.ValidationError: If no fields are \
+        specified or if only a single non identifier field is specified or \
+        multiple fields are specified but they're not enough for a resource \
+        definition
         """
         if len(data) == 1:
             unique_id_fields = {"Id", "Name"}
@@ -90,8 +93,8 @@ class PushTopicSchema(StrictSchema):
     def check_api_version(self, data):  # pylint: disable=no-self-use
         """Check for invalid fields for the specified API version
 
-        :raise marshmallow.ValidationError: If any invalid fields found for \
-        the specified API version
+        :raise marshmallow.exceptions.ValidationError: If any invalid fields \
+        found for the specified API version
         """
         # skip validation if the ApiVersion field is not present, which might
         # happen even when it's specified but it's value fails on validation
@@ -131,9 +134,10 @@ class StreamingChannelSchema(StrictSchema):
     def check_required_fileds(self, data):  # pylint: disable=no-self-use
         """Check for required fields
 
-        :raise marshmallow.ValidationError: If no fields are specified or if \
-        only a single non identifier field is specified or multiple fields \
-        are specified but they're not enough for a resource definition
+        :raise marshmallow.exceptions.ValidationError: If no fields are \
+        specified or if only a single non identifier field is specified or \
+        multiple fields are specified but they're not enough for a resource \
+        definition
         """
         if len(data) == 1:
             unique_id_fields = {"Id", "Name"}
@@ -307,7 +311,7 @@ def get_config_loader(file_path):
 
     :param str file_path: An absolute or relative file path
     :return: A callable capable of loading the config file
-    :rtype: Callable or None
+    :rtype: :func:`callable` or None
     """
     # get the file's suffix without the period
     path = Path(file_path)

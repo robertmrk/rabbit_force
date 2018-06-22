@@ -1,4 +1,4 @@
-"""Message source class definitions"""
+"""Definition of MessageSource classes and their collaborator classes"""
 import asyncio
 from abc import ABC, abstractmethod
 import pickle
@@ -73,16 +73,17 @@ class SalesforceOrgMessageSource(MessageSource):
         :param SalesforceOrg salesforce_org: A salesforce org object
         :param replay: A ReplayOption or an object capable of storing replay \
         ids if you want to take advantage of Salesforce's replay extension. \
-        You can use one of the :obj:`ReplayOptions <ReplayOption>`, or \
+        You can use one of the \
+        :obj:`ReplayOptions <aiosfstream.ReplayOption>`, or \
         an object that supports the MutableMapping protocol like :obj:`dict`, \
         :obj:`~collections.defaultdict`, :obj:`~shelve.Shelf` etc. or a \
-        custom :obj:`ReplayMarkerStorage` implementation.
+        custom :obj:`~aiosfstream.ReplayMarkerStorage` implementation.
         :type replay: aiosfstream.ReplayOption, \
         aiosfstream.ReplayMarkerStorage, collections.abc.MutableMapping or None
         :param replay_fallback: Replay fallback policy, for when a subscribe \
         operation fails because a replay id was specified for a message \
         outside the retention window
-        :type replay_fallback: aiosfstream.ReplayOption
+        :type replay_fallback: aiosfstream.ReplayOption or None
         :param connection_timeout: The maximum amount of time to wait for the \
         client to re-establish a connection with the server when the \
         connection fails.

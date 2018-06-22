@@ -1,4 +1,4 @@
-"""Message sink class definitions"""
+"""Definition of MessageSink classes and their collaborator classes"""
 import asyncio
 from abc import ABC, abstractmethod
 import json

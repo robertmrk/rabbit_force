@@ -1,4 +1,10 @@
-"""Factory functions for creating objects from the configuration"""
+"""Factory functions for creating objects from the configuration
+
+These functions are responsible for constructing the collaborator objects of
+the :class:`~rabbit_force.app.Application` and the objects they depend on.
+This way the rather complex construction of the objects is separated from
+their usage.
+"""
 import logging
 import asyncio
 
@@ -30,14 +36,14 @@ async def create_salesforce_org(*, name, consumer_key, consumer_secret,
     :param str username: Salesforce username
     :param str password: Salesforce password
     :param list[dict] streaming_resource_specs: List of resource \
-    specifications that can be passed to
-    :meth:`~source.salesforce.org.SalesforceOrg.add_resource`
+    specifications that can be passed to \
+    :meth:`~rabbit_force.salesforce.org.SalesforceOrg.add_resource`
     :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
                  schedule tasks. If *loop* is ``None`` then
                  :func:`asyncio.get_event_loop` is used to get the default
                  event loop.
     :return: An initialized Salesforce org object
-    :rtype: ~source.salesforce.org.SalesforceOrg
+    :rtype: ~rabbit_force.salesforce.org.SalesforceOrg
     """
     loop = loop or asyncio.get_event_loop()
 
@@ -62,7 +68,8 @@ async def create_replay_storage(*, replay_spec, source_name,
     based on the *replay_spec*
 
     :param replay_spec: Replay storage specification that can be passed \
-    to :obj:`RedisReplayStorage` to create a replay marker storage object
+    to :obj:`~rabbit_force.message_source.RedisReplayStorage` to create a \
+    replay marker storage object
     :type replay_spec: dict or None
     :param str source_name: Name of the message source
     :param bool ignore_network_errors: If True then no exceptions will \
@@ -72,7 +79,11 @@ async def create_replay_storage(*, replay_spec, source_name,
                  schedule tasks. If *loop* is ``None`` then
                  :func:`asyncio.get_event_loop` is used to get the default
                  event loop.
-    :return:
+    :return: A two element tuple, whose first element is either a \
+    :obj:`~rabbit_force.message_source.RedisReplayStorage` or a \
+    :obj:`~aiosfstream.ReplayOption` and the second element is a replay \
+    fallback parameter which is either a :obj:`~aiosfstream.ReplayOption` or \
+    ``None``
     """
     loop = loop or asyncio.get_event_loop()
 
@@ -110,12 +121,15 @@ async def create_message_source(*, org_specs, replay_spec=None,
     :param dict org_specs: Dictionary of name - Salesforce org specification \
     pairs that can be passed to *org_factory* to create an object
     :param replay_spec: Replay storage specification that can be passed \
-    to :obj:`RedisReplayStorage` to create a replay marker storage object
+    to :obj:`~rabbit_force.message_source.RedisReplayStorage` to create a \
+    replay marker storage object
     :type replay_spec: dict or None
-    :param callable org_factory: A callable capable of creating a Salesforce \
+    :param org_factory: A callable capable of creating a Salesforce \
     org from the items of *org_specs*
-    :param callable replay_storage_factory: A callable capable of creating a \
+    :type org_factory: :func:`callable`
+    :param replay_storage_factory: A callable capable of creating a \
     replay marker storage object from the *replay_spec*
+    :type replay_storage_factory: :func:`callable`
     :param bool ignore_replay_storage_errors: If True then no exceptions will \
     be raised in case of a network error occurs in the replay marker storage \
     object
@@ -128,7 +142,7 @@ async def create_message_source(*, org_specs, replay_spec=None,
                  :func:`asyncio.get_event_loop` is used to get the default
                  event loop.
     :return: A message source object
-    :rtype: ~source.message_source.MessageSource
+    :rtype: ~rabbit_force.message_source.MessageSource
     """
     loop = loop or asyncio.get_event_loop()
 
@@ -184,19 +198,19 @@ async def create_broker(*, name, host, exchange_specs, port=None,
     """Create and initialize a message broker with the given parameters
 
     :param str name: Name of the message broker
-    :param str host: the host to connect to
+    :param str host: The host to connect to
     :param list[dict] exchange_specs: List of exchange specifications that \
-    can be passed to :py:meth:`aioamqp.channel.Channel.exchange_declare`
-    :param port: broker port
+    can be passed to :py:meth:`aioamqp.Channel.exchange_declare`
+    :param port: Broker port
     :type port: int or None
-    :param str login: login
-    :param str password: password
+    :param str login: Username
+    :param str password: Password
     :param str virtualhost: AMQP virtualhost to use for this connection
     :param bool ssl: Create an SSL connection instead of a plain unencrypted \
     one
     :param str login_method: AMQP auth method
     :param bool insist: Insist on connecting to a server
-    :param bool verify_ssl: Verify server's SSL certificate (True by default)
+    :param bool verify_ssl: Verify server's SSL certificate
     :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
                  schedule tasks. If *loop* is ``None`` then
                  :func:`asyncio.get_event_loop` is used to get the default
@@ -230,15 +244,18 @@ async def create_message_sink(*, broker_specs,
 
     :param dict broker_specs: Dictionary of name - broker specification \
     pairs that can be passed to *broker_factory* to create an object
-    :param callable broker_factory: A callable capable of creating a message \
-    broker from the items of *broker_specs*
-    :param callable broker_sink_factory: A callable capable of creating \
-    :py:obj:`MessageSink` objects which will wrap broker instances
+    :param broker_factory: A callable capable of creating a \
+    message broker from the items of *broker_specs*
+    :type broker_factory: :func:`callable`
+    :param broker_sink_factory: A callable capable of creating \
+    :py:obj:`~rabbit_force.message_sink.MessageSink` objects which will wrap \
+    broker instances
+    :type broker_sink_factory: :func:`callable`
     :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
                  schedule tasks. If *loop* is ``None`` then
                  :func:`asyncio.get_event_loop` is used to get the default
                  event loop.
-    :rtype: ~sink.message_sink.MessageSink
+    :rtype: ~rabbit_force.message_sink.MessageSink
     """
     loop = loop or asyncio.get_event_loop()
 
@@ -265,10 +282,12 @@ def create_rule(*, condition_spec, route_spec,
     routing condition using the *condition_factory*
     :param dict route_spec: A dictionary that can be used to construct a \
     route using the *route_factory*
-    :param callable condition_factory: A callable capable of creating \
-    :py:obj:`RoutingCondition` objects
-    :param callable route_factory: A callable capable of creating \
-    :py:obj:`Route` objects
+    :param condition_factory: A callable capable of creating \
+    :py:obj:`~rabbit_force.routing.RoutingCondition` objects
+    :type condition_factory: :func:`callable`
+    :param route_factory: A callable capable of creating \
+    :py:obj:`~rabbit_force.routing.Route` objects
+    :type route_factory: :func:`callable`
     :return: A routing rule object
     :rtype: RoutingRule
     """
@@ -291,12 +310,14 @@ def create_router(*, default_route_spec, rule_specs, route_factory=Route,
     :type default_route_spec: dict or None
     :param list[dict] rule_specs: A list of dictionaries that can be used \
     to construct routing rules with the *rule_factory*
-    :param callable route_factory: A callable capable of creating \
-    :py:obj:`Route` objects
+    :param route_factory: A callable capable of creating \
+    :py:obj:`~rabbit_force.routing.Route` objects
+    :type route_factory: :func:`callable`
     :param rule_factory:  A callable capable of creating \
-    :py:obj:`RoutingRule` objects
+    :py:obj:`~rabbit_force.routing.RoutingRule` objects
+    :type rule_factory: :func:`callable`
     :return: A message router object
-    :rtype: MessageRouter
+    :rtype: ~rabbit_force.routing.MessageRouter
     """
     # if there is no default route defined then use None
     default_route = None

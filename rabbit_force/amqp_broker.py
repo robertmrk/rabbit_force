@@ -14,21 +14,17 @@ class AmqpBroker:  # pylint: disable=too-many-instance-attributes
                  login_method='AMQPLAIN', insist=False, verify_ssl=True,
                  loop=None):
         """
-        :param str host: the host to connect to
-        :param list[dict] exchange_specs: List of exchange specifications \
-        that can be passed to \
-        :py:meth:`aioamqp.channel.Channel.exchange_declare`
-        :param port: broker port
+        :param str host: The host to connect to
+        :param port: Broker port
         :type port: int or None
-        :param str login: login
-        :param str password: password
+        :param str login: Username
+        :param str password: Password
         :param str virtualhost: AMQP virtualhost to use for this connection
         :param bool ssl: Create an SSL connection instead of a plain \
         unencrypted one
         :param str login_method: AMQP auth method
         :param bool insist: Insist on connecting to a server
-        :param bool verify_ssl: Verify server's SSL certificate \
-        (True by default)
+        :param bool verify_ssl: Verify server's SSL certificate
         :param loop: Event :obj:`loop <asyncio.BaseEventLoop>` used to
                      schedule tasks. If *loop* is ``None`` then
                      :func:`asyncio.get_event_loop` is used to get the default
@@ -102,7 +98,7 @@ class AmqpBroker:  # pylint: disable=too-many-instance-attributes
 
         :param str exchange_name: Name of the exchange
         :param str type_name: The exchange type (fanout, direct, topics …)
-        :param bool passive: Ff set, the server will reply with Declare-Ok if \
+        :param bool passive: If set, the server will reply with Declare-Ok if \
         the exchange already exists with the same name, and raise an error \
         if not. Checks for the same parameter as well.
         :param bool durable: If set when creating a new exchange, the \
