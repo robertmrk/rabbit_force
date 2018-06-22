@@ -25,3 +25,6 @@
 .. _rabbitmq_policies: https://www.rabbitmq.com/parameters.html
 .. _jsonpath-rw: https://github.com/kennknowles/python-jsonpath-rw
 .. _jsonpath-rw-ext: https://github.com/sileht/python-jsonpath-rw-ext
+.. _pipenv: https://docs.pipenv.org/
+.. _rabbit_force_releases: https://github.com/robertmrk/rabbit_force/releases
+.. _rabbit_force_github: https://github.com/robertmrk/rabbit_force
