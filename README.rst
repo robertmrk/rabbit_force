@@ -60,8 +60,9 @@ The configuration file bellow sets up rabbit_force to forward messages from
 of ``lead_change_message``, ``contact_change_message`` and
 ``my_channel_message`` respectively.
 
+config.yaml:
+
 .. code-block:: yaml
-    :caption: config.yaml
 
     # message source definition
     source:
