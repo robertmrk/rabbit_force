@@ -5,4 +5,4 @@ build:
     image: latest
 python:
     version: 3.6
-requirements_file: requirements.txt
+requirements_file: dev_requirements.txt
