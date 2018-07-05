@@ -1,8 +1,8 @@
 Changelog
 =========
 
-0.1.0
------
+0.1.0 (2018-07-05)
+------------------
 
 - Forward `Streaming API <api_>`_ messages from one or more Salesforce orgs to
   one or more `RabbitMQ brokers <rabbitmq_>`_
