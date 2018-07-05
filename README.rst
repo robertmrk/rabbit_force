@@ -197,6 +197,22 @@ A sample run of rabbit_force with the above configuration file.
     2018-06-19 16:24:20,180:INFO: Forwarded message 1 on channel '/u/my_channel' from 'my_org' to Route(broker_name='my_broker', exchange_name='my_exchange', routing_key='my_channel_message', properties=None).
     2018-06-19 16:24:27,097:INFO: Shutting down ...
 
+Documentation
+-------------
+
+`https://rabbit-force.readthedocs.io <https://rabbit-force.readthedocs.io>`_
+
+Requirements
+------------
+
+Python 3.6 and above.
+
+License
+-------
+
+rabbit_force is offered under the `MIT license <LICENSE.txt>`_.
+
+
 .. _aiohttp: https://github.com/aio-libs/aiohttp/
 .. _aiocometd: https://github.com/robertmrk/aiocometd/
 .. _asyncio: https://docs.python.org/3/library/asyncio.html
