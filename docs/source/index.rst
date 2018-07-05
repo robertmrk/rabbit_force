@@ -66,7 +66,7 @@ a single Salesforce org named as ``my_org`` and a single RabbitMQ broker named
 ``my_broker``. It listens for messages from two PushTopics (``lead_changes``
 and ``contact_changes``) and a StreamingChannel (``my_channel``), and forwards
 messages into the exchange ``my_exchange`` with different routing keys. A redis
-database is used to store raplay markers sent by Salesforce to take advantage
+database is used to store replay markers sent by Salesforce to take advantage
 of `message durability <replay_>`_.
 
 .. image:: _static/usage.svg
@@ -123,12 +123,12 @@ of ``lead_change_message``, ``contact_change_message`` and
               # optional durable flag, if false then the resource will be removed on application shutdown
               durable: false
 
-            # s StreamingChannel resource
+            # a StreamingChannel resource
             - type: StreamingChannel
+              # the definition of the StreamingChannel
               spec:
                 Name: /u/my_channel
                 Description: Streaming channel for notifications
-              durable: false
       # optional replay storage definition. if defined it'll be used to store replay
       # markers sent by Salesforce in order to support message durability
       replay:

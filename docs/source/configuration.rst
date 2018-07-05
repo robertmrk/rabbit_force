@@ -137,7 +137,7 @@ PushTopic spec
 ''''''''''''''
 
 When defining a resource of `type`_ ``PushTopic`` then the `spec`_ mapping
-can contain exaclty the same value's as defined by `Salesforce's REST API
+can contain exactly the same value's as defined by `Salesforce's REST API
 reference for creating PushTopics <PushTopicRef_>`_.
 
 ========================== ============= ======================================
@@ -218,7 +218,7 @@ StreamingChannel spec
 '''''''''''''''''''''
 
 When defining a resource of `type`_ ``StreamingChannel`` then the `spec`_
-mapping can contain exaclty the same value's as defined by `Salesforce's REST
+mapping can contain exactly the same value's as defined by `Salesforce's REST
 API reference for creating StreamingChannels <StreamingChannelRef_>`_.
 
 =========== ============= =====================================================
@@ -252,7 +252,7 @@ Replay is an optional property which can be specified to take advantage of
 the Streaming API's `message durability <replay_>`_ feature.
 
 Salesforce stores events for 24 hours. Events outside the 24-hour retention
-period are discarded. Salesforce extends the event messages with `repalyId`
+period are discarded. Salesforce extends the event messages with `replayId`
 and `createdDate` fields which are called as `ReplayMarkers`. By storing
 these `ReplayMarker` values and sending them when subscribing to channels,
 message loss can be avoided which might occur due to hardware, software or
