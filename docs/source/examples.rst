@@ -68,7 +68,7 @@ the routing keys ``lead.create``, ``lead.update`` and ``lead.delete``
 respectively.
 
 rabbit_force is also configured to use a `Redis <redis_>`_ database to store
-replay markers, so it can take advantege of the Streaming API's
+replay markers, so it can take advantage of the Streaming API's
 `message durability <replay_>`_ feature.
 
 .. code-block:: yaml
@@ -137,10 +137,10 @@ The routing keys of the forwarded messages depend on the event type property.
 ``lead_changes`` are forwarded with the routing keys ``lead.create``,
 ``lead.update`` and ``lead.delete`` and from the PushTopic ``contact_changes``
 they're forwarded with the routing keys of ``contact.create``,
-``contanct.update`` and ``contact.delete`` respectively.
+``contact.update`` and ``contact.delete`` respectively.
 
 rabbit_force is also configured to use a `Redis <redis_>`_ database to store
-replay markers, so it can take advantege of the Streaming API's
+replay markers, so it can take advantage of the Streaming API's
 `message durability <replay_>`_ feature.
 
 .. code-block:: yaml
@@ -232,7 +232,7 @@ from the Salesforce orgs ``org1`` and ``org2`` and from the PushTopics named
 ``my_exchange`` with the routing key of ``event_message``.
 
 rabbit_force is also configured to use a `Redis <redis_>`_ database to store
-replay markers, so it can take advantege of the Streaming API's
+replay markers, so it can take advantage of the Streaming API's
 `message durability <replay_>`_ feature.
 
 .. code-block:: yaml
@@ -302,7 +302,7 @@ event messages from Salesforce org ``org2`` and from the PushTopic named
 ``lead_changes`` with the routing key of ``org2_message``.
 
 rabbit_force is also configured to use a `Redis <redis_>`_ database to store
-replay markers, so it can take advantege of the Streaming API's
+replay markers, so it can take advantage of the Streaming API's
 `message durability <replay_>`_ feature.
 
 .. code-block:: yaml
@@ -380,7 +380,7 @@ event messages from the same org and from the PushTopic named
 ``my_exchange`` with the routing key of ``contact_change``.
 
 rabbit_force is also configured to use a `Redis <redis_>`_ database to store
-replay markers, so it can take advantege of the Streaming API's
+replay markers, so it can take advantage of the Streaming API's
 `message durability <replay_>`_ feature.
 
 .. code-block:: yaml
@@ -460,7 +460,7 @@ event messages from the Salesforce org ``org2`` and from the PushTopic named
 ``my_exchange`` with the routing key of ``org2_message``.
 
 rabbit_force is also configured to use a `Redis <redis_>`_ database to store
-replay markers, so it can take advantege of the Streaming API's
+replay markers, so it can take advantage of the Streaming API's
 `message durability <replay_>`_ feature.
 
 .. code-block:: yaml

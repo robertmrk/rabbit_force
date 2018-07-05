@@ -32,7 +32,7 @@ exec(read(metadata_path), metadata)
 
 project = metadata["TITLE"]
 copyright = '2018, ' + metadata["AUTHOR"]
-author =  metadata["AUTHOR"]
+author = metadata["AUTHOR"]
 
 # The short X.Y version
 version = metadata["VERSION"]
