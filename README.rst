@@ -66,7 +66,7 @@ a single Salesforce org named as ``my_org`` and a single RabbitMQ broker named
 ``my_broker``. It listens for messages from two PushTopics (``lead_changes``
 and ``contact_changes``) and a StreamingChannel (``my_channel``), and forwards
 messages into the exchange ``my_exchange`` with different routing keys. A redis
-database is used to store raplay markers sent by Salesforce to take advantage
+database is used to store replay markers sent by Salesforce to take advantage
 of `message durability <replay_>`_.
 
 .. image:: docs/source/_static/usage.svg
@@ -124,12 +124,12 @@ config.yaml:
               # optional durable flag, if false then the resource will be removed on application shutdown
               durable: false
 
-            # s StreamingChannel resource
+            # a StreamingChannel resource
             - type: StreamingChannel
+              # the definition of the StreamingChannel
               spec:
                 Name: /u/my_channel
                 Description: Streaming channel for notifications
-              durable: false
       # optional replay storage definition. if defined it'll be used to store replay
       # markers sent by Salesforce in order to support message durability
       replay:
@@ -197,6 +197,9 @@ A sample run of rabbit_force with the above configuration file.
     2018-06-19 16:24:20,180:INFO: Forwarded message 1 on channel '/u/my_channel' from 'my_org' to Route(broker_name='my_broker', exchange_name='my_exchange', routing_key='my_channel_message', properties=None).
     2018-06-19 16:24:27,097:INFO: Shutting down ...
 
+More advanced examples can be found in the `examples section of the
+documentation <example_docs_>`_.
+
 Documentation
 -------------
 
@@ -221,3 +224,4 @@ rabbit_force is offered under the `MIT license <LICENSE.txt>`_.
 .. _microservice: http://microservices.io/patterns/communication-style/messaging.html
 .. _jsonpath: http://goessner.net/articles/JsonPath/
 .. _redis: https://redis.io/
+.. _example_docs: https://rabbit-force.readthedocs.io/en/latest/examples.html
