@@ -1,0 +1,25 @@
+-i https://pypi.org/simple
+-e git+https://github.com/sileht/python-jsonpath-rw-ext.git@75beb8a36abc8949c68b7ef9e20992bae9e9eb7a#egg=jsonpath-rw-ext
+aioamqp==0.11.0
+aiocometd==0.3.1
+aiohttp==3.3.2
+aioredis==1.1.0
+aiosfstream==0.2.2
+async-timeout==3.0.0
+attrs==18.1.0
+chardet==3.0.4
+click==6.7
+decorator==4.3.0
+hiredis==0.2.0
+idna-ssl==1.0.1
+idna==2.7
+jsonpath-rw==1.4.0
+marshmallow==3.0.0b11
+multidict==4.3.1
+pbr==4.0.4
+ply==3.11
+pyyaml==3.12
+six==1.11.0
+ujson==1.35
+uvloop==0.10.1
+yarl==1.2.6
