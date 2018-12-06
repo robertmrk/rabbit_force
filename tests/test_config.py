@@ -24,7 +24,7 @@ class TestStrictSchema(TestCase):
         }
 
         with self.assertRaisesRegex(ValidationError,
-                                    r"{'bar': \['Unknown field'\]}"):
+                                    r"{'bar': \['Unknown field.'\]}"):
             self.schema_cls().load(data)
 
 

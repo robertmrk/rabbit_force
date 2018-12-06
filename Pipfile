@@ -5,15 +5,15 @@ name = "pypi"
 
 [packages]
 aiohttp = ">=3.1,<4.0"
-aiosfstream = ">=0.2.2,<0.3.0"
+aiosfstream = "*"
 pyyaml = "*"
 aioredis = "*"
 aioamqp = "*"
 marshmallow = ">=3.0.0b5,<3.1.0"
-jsonpath-rw-ext = {git = "https://github.com/sileht/python-jsonpath-rw-ext.git", editable = true, ref = "75beb8a36abc8949c68b7ef9e20992bae9e9eb7a"}
-click = ">=6.7,<7.0"
+click = "*"
 ujson = ">=1.35,<2.0"
 uvloop = "*"
+jsonpath-rw-ext = ">=1.2.0"
 
 [dev-packages]
 sphinx = "*"
