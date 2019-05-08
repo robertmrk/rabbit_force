@@ -5,7 +5,7 @@ import json
 import logging
 
 from marshmallow import Schema, fields, validates_schema, ValidationError, \
-    post_load
+    post_load, RAISE
 from marshmallow.validate import Length, Range, OneOf
 import yaml
 
@@ -18,22 +18,9 @@ LOGGER = logging.getLogger(__name__)
 
 class StrictSchema(Schema):
     """Common schema base class which rejects unknown fields"""
-
-    # pylint: disable=unused-argument
-    @validates_schema(pass_original=True)
-    def check_unknown_fields(self, data, original_data):
-        """Check for the presence and reject unknown fields
-
-        :raise marshmallow.exceptions.ValidationError: If an unknown field is \
-        found
-        """
-        # get the difference of the loaded and specified fields
-        unknown_fields = set(original_data) - set(self.fields)
-        # raise an error if any surplus fields are present
-        if unknown_fields:
-            raise ValidationError('Unknown field', list(unknown_fields))
-
-    # pylint: enable=unused-argument
+    def __init__(self, *args, **kwargs):
+        kwargs["unknown"] = RAISE
+        super().__init__(*args, **kwargs)
 
 
 class PushTopicSchema(StrictSchema):
@@ -108,11 +95,11 @@ class PushTopicSchema(StrictSchema):
                                   " for API version 28.0 and earlier.")
 
         # check for the presence of new fields for an older API version
-        elif (data["ApiVersion"] <= 28.0 and
-              ("NotifyForOperationCreate" in data or
-               "NotifyForOperationDelete" in data or
-               "NotifyForOperationUndelete" in data or
-               "NotifyForOperationUpdate" in data)):
+        if (data["ApiVersion"] <= 28.0 and
+                ("NotifyForOperationCreate" in data or
+                 "NotifyForOperationDelete" in data or
+                 "NotifyForOperationUndelete" in data or
+                 "NotifyForOperationUpdate" in data)):
             raise ValidationError("'NotifyForOperationCreate', "
                                   "'NotifyForOperationDelete', "
                                   "'NotifyForOperationUndelete' and "
