@@ -8,5 +8,7 @@ install:
 - pipenv install --dev
 script:
 - coverage run -m unittest discover tests
+- flake8 rabbit_force tests
+- pylint rabbit_force
 after_success:
 - coveralls
