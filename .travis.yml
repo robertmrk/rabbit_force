@@ -1,11 +1,14 @@
+dist: xenial
 language: python
 python:
-- "3.6"
+- "3.7"
 before_install:
-- pip install -q coveralls pipenv
+- pip install -q pipenv
 install:
 - pipenv install --dev
 script:
 - coverage run -m unittest discover tests
+- flake8 rabbit_force tests
+- pylint rabbit_force
 after_success:
 - coveralls

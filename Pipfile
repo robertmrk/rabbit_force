@@ -18,12 +18,13 @@ jsonpath-rw-ext = ">=1.2.0"
 [dev-packages]
 sphinx = "*"
 asynctest = "*"
-coverage = "*"
 "flake8" = "*"
 pylint = "*"
+coveralls = "*"
+coverage = "<5.0"
 
 [requires]
-python_version = "3.6"
+python_version = "3.7"
 
 [pipenv]
 allow_prereleases = true
