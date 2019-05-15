@@ -208,7 +208,17 @@ Documentation
 Requirements
 ------------
 
-Python 3.6 and above.
+Python 3.7
+
+Docker
+------
+
+The `public docker image <https://hub.docker.com/r/robertmrk/rabbit_force>`_ can
+be found on docker hub.
+
+.. code-block:: bash
+
+    $ docker pull robertmrk/rabbit_force
 
 License
 -------
