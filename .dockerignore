@@ -1,0 +1,4 @@
+*
+!rabbit_force/
+!Pipfile*
+**/__pycache__

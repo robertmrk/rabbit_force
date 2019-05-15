@@ -133,7 +133,7 @@ def main(config_file, ignore_replay_storage_errors, ignore_sink_errors,
         app.run()
 
     except Exception as error:  # pylint: disable=broad-except
-        logger.error(f"Unexpected error: \n%r", error, exc_info=show_trace)
+        logger.error("Unexpected error: \n%r", error, exc_info=show_trace)
         exit(1)
 
 
