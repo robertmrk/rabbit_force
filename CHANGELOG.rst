@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.1.1 (2019-05-15)
+------------------
+
+- Switch to python 3.7
+- Update outdated dependencies
+- Add docker deployment option
+
+
 0.1.0 (2018-07-05)
 ------------------
 
